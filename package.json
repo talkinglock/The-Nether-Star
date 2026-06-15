@@ -1,0 +1,10 @@
+{
+  "devDependencies": {
+    "typescript": "^6.0.2",
+    "typescript-to-lua": "^1.37.0"
+  },
+  "scripts": {
+      "build": "tstl",
+      "dev": "tstl --watch"
+  }
+}

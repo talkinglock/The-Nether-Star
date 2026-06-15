@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/TypeScriptToLua/TypeScriptToLua/master/tsconfig-schema.json",
+  "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["ESNext"],
+    "noImplicitThis": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "ignoreDeprecations": "6.0",
+    "strictNullChecks": true,
+    "noImplicitReturns": true,
+    "moduleResolution": "Node",
+    "types": [],
+    "strict": true
+  },
+  "tstl": {
+    "sourceMapTraceback": true,
+    "luaBundle": "build/drone.lua",
+    "luaBundleEntry": "src/entry/drone.ts",
+    "luaTarget": "5.1"
+  }
+}
