@@ -25,7 +25,6 @@ print(string.format("clamp A took %f seconds", benchmarkingTimer(clampA, n)))
 print(string.format("clamp B Took %f seconds", benchmarkingTimer(clampB, n)))
 print(string.format("clamp C Took %f seconds", benchmarkingTimer(clampC, n)))
 ]]--
-local quaternion = require("classes.MathClasses.Quaternion")
 local utilities = {}
 
 function utilities.clamp(x, min, max)--benchmark speed: 0.027751 seconds

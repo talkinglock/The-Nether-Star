@@ -11,13 +11,12 @@ for the
 **T**hruster-driven
 **A**erial
 **R**ace-craft
-
 is a Computer-Craft and Valkyerian Skies driven set of craft with the goal of reaching the Minecraft Nether world border *through* the terrain.
 
 It is composed of the main craft, the "***star***" as per the acronym, which is carrying the player and power equipment.
 It is also composed of drones which use LIDAR technology to scan and map a path through the environment and manipulate terrain.
 
-The Nether Star is planned for a  ***30,000,000*** block journey (***200 hours~***) to the world border, this is a lot of time for edge cases and things to go wrong. Because of the potential for failure this code base has strict coding guidelines to ensure stability:
+The Nether Star is planned for a  ***30,000,000*** block journey (***200 hours~***) to the world border, this is a lot of time for edge cases and things to go wrong. Because of the potential for failure this code base has strict coding guidelines to ensure stability.
 
 
 # YOUTUBE
@@ -36,7 +35,8 @@ The whole series is recorded on YouTube!
 - - As consequence, reduce use of external libraries to absolute minimum
 - Avoid creating short-lived objects inside loops. Define outside the loop and assign inside.
 - No recursion at all
-- Nesting limited to 2
+- Nesting limited to 2 except for one-liners (like errors or returns)
+- The only time you can declare an object with more then one possible type is with null. Ex: ```const mag : number|null = vector.Magnitude();``` and the variable can only be used once the null is verified to be logical impossible.
 - AI can only help conceptually and cannot write any code 
 
 ### PRIORITY REQUIREMENTS

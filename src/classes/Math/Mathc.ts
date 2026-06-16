@@ -1,0 +1,6 @@
+export class Mathc {
+    static clamp(value : number, min : number, max : number)
+    {
+        return Math.max(min, Math.min(max, value));
+    }
+}

@@ -4,6 +4,7 @@
     "target": "ESNext",
     "lib": ["ESNext"],
     "noImplicitThis": true,
+    "noImplicitAny": true,
     "noUncheckedIndexedAccess": true,
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
