@@ -7,7 +7,7 @@ The N.E.T.H.E.R S.T.A.R, which stands for:<br>
 **H**elmed by the<br>
 **E**ngine of<br>
 **R**eactive-choice<br>
-for the
+for the<br>
 **S**elf-governing<br>
 **T**hruster-driven<br>
 **A**erial<br>
