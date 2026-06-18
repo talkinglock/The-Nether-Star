@@ -40,64 +40,6 @@ return{p=p,i=i,d=d,error=0,derivative=0,integral=0,run=function(self,setpoint,pr
 end
 ]] --
 
-function pidcontrollers.PID_Continuous_Vector(p, i, d, clamp_parameter_min, clamp_parameter_max)
-	local this = {}
-	this.error = vector.new(0, 0, 0)
-	this.derivative = vector.new(0, 0, 0)
-	this.integral = vector.new(0, 0, 0)
-	this.continue_integral_compounding = vector.new(1, 1, 1)
-	this.is_same_sign = vector.new(0, 0, 0)
-
-	function run(error_vector)
-		local error, derivative
-		local integral = vector.new(0, 0, 0)
-
-		error = error_vector
-
-		local error_sign = sign_vector3(error)
-
-		--derivative = (input:sub(self.last_input)):div(0.05)-- anti derivative kick
-		derivative = (error:sub(this.error)):div(0.05) -- had to go back to default derivative :(
-
-		-- need to clamp integral to account for pwm thruster saturation --
-		--https://youtu.be/NVLXCwc8HzM--
-		this.error = error
-
-		local err_x_cont = vector.new(error.x, error.y, error.z)
-		err_x_cont.x = err_x_cont.x * this.continue_integral_compounding.x
-		err_x_cont.y = err_x_cont.y * this.continue_integral_compounding.y
-		err_x_cont.z = err_x_cont.z * this.continue_integral_compounding.z
-
-		integral = this.integral:add(err_x_cont:mul(0.05))
-
-		this.derivative = derivative
-		this.integral = integral
-
-		local output = error:mul(this.p)
-		output = output:add(derivative:mul(this.d))
-		output = output:add(integral:mul(this.i))
-		local output_sign = sign_vector3(output)
-
-		local clamped_output = clamp_vector3(output, clamp_parameter_min, clamp_parameter_max)
-
-		local thruster_is_saturated = vector.new(0, 0, 0)
-
-		thruster_is_saturated.x = clamped_output.x == output.x and 0 or 1
-		thruster_is_saturated.y = clamped_output.y == output.y and 0 or 1
-		thruster_is_saturated.z = clamped_output.z == output.z and 0 or 1
-
-		this.is_same_sign.x = error_sign.x == output_sign.x and 1 or 0
-		this.is_same_sign.y = error_sign.y == output_sign.y and 1 or 0
-		this.is_same_sign.z = error_sign.z == output_sign.z and 1 or 0
-
-		this.continue_integral_compounding.x = 1 - (thruster_is_saturated.x * this.is_same_sign.x)
-		this.continue_integral_compounding.y = 1 - (thruster_is_saturated.y * this.is_same_sign.y)
-		this.continue_integral_compounding.z = 1 - (thruster_is_saturated.z * this.is_same_sign.z)
-
-		return {clamped_output.x, clamped_output.y, clamped_output.z};
-		-- need to clamp integral to account for thruster saturation --
-	end
-end
 
 function pidcontrollers.PID_Continuous_Quaternion(p, i, d, iMax, clamp_parameter_min, clamp_parameter_max)
 	local table = {}

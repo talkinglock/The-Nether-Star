@@ -1,5 +1,5 @@
 declare namespace PidBridge {
-    function PID_Continuous_Vector(
+    function PID_Continuous_Vector_TS(
         P : number,
         I : number,
         D : number,

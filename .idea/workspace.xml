@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="aab7c3f9-77da-4751-aabb-1c4781733398" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/drone.lua" beforeDir="false" afterPath="$PROJECT_DIR$/build/drone.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/drone.lua.map" beforeDir="false" afterPath="$PROJECT_DIR$/build/drone.lua.map" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/classes/Configuration.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/classes/Configuration.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/classes/Failure.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/classes/Failure.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/classes/MainSystems/FailureManagementSystem.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/classes/MainSystems/FlightManagementSystem.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/classes/MainSystems/FlightManagementSystem.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/classes/MainSystems/ReactionControlSystem.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/classes/MainSystems/ReactionControlSystem.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/classes/Math/Mathc.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/classes/Math/Mathc.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/classes/Math/Quaternion.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/classes/Math/Quaternion.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/classes/Math/Vector3.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/classes/Math/Vector3.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/entry/drone.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/entry/drone.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/lua/bridge/shipBridge.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/lua/bridge/shipBridge.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/lua/declaration/shipBridge.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/lua/declaration/shipBridge.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/thirdparty/lua/pidcontrollers.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/thirdparty/lua/pidcontrollers.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/thirdparty/lua/pidcontrollers.lua" beforeDir="false" afterPath="$PROJECT_DIR$/thirdparty/lua/pidcontrollers.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/thirdparty/tswrappers/pidcontroller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/thirdparty/tswrappers/pidcontroller.ts" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 1
+}]]></component>
+  <component name="ProjectId" id="3FJ4qAMqg9cJ96b8gAEOTlXcSuu" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "git-widget-placeholder": "main",
+    "javascript.preferred.runtime.type.id": "node",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "ts.external.directory.path": "/run/media/gransugar/auxillary-m.2-l2/Dev/TheNetherStar/node_modules/typescript/lib",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-31caf2ab9e3c-JavaScript-WS-261.25134.101" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="aab7c3f9-77da-4751-aabb-1c4781733398" name="Changes" comment="" />
+      <created>1781780029031</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1781780029031</updated>
+      <workItem from="1781780033273" duration="142000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>

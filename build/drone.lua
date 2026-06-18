@@ -2888,9 +2888,11 @@ ____exports.FailureMode.THRUSTER_RELAY_DOESNT_EXIST = 2
 ____exports.FailureMode[____exports.FailureMode.THRUSTER_RELAY_DOESNT_EXIST] = "THRUSTER_RELAY_DOESNT_EXIST"
 ____exports.FailureMode.THRUSTER_POST_FAILURE = 3
 ____exports.FailureMode[____exports.FailureMode.THRUSTER_POST_FAILURE] = "THRUSTER_POST_FAILURE"
-____exports.FailureMode.RCS_POST_FAILURE = 4
-____exports.FailureMode[____exports.FailureMode.RCS_POST_FAILURE] = "RCS_POST_FAILURE"
-____exports.FailureMode.RCS_ZERO_VECTOR = 5
+____exports.FailureMode.UPDATE_BEFORE_POST = 4
+____exports.FailureMode[____exports.FailureMode.UPDATE_BEFORE_POST] = "UPDATE_BEFORE_POST"
+____exports.FailureMode.NOT_YET_IMPLEMENTED = 5
+____exports.FailureMode[____exports.FailureMode.NOT_YET_IMPLEMENTED] = "NOT_YET_IMPLEMENTED"
+____exports.FailureMode.RCS_ZERO_VECTOR = 6
 ____exports.FailureMode[____exports.FailureMode.RCS_ZERO_VECTOR] = "RCS_ZERO_VECTOR"
 ____exports.Failure = __TS__Class()
 local Failure = ____exports.Failure
@@ -2906,10 +2908,39 @@ function Failure.prototype.____constructor(self, message, failureMode)
 end
 return ____exports
  end,
+["src.classes.Math.Mathc"] = function(...) 
+local ____lualib = require("lualib_bundle")
+local __TS__Class = ____lualib.__TS__Class
+local __TS__SourceMapTraceBack = ____lualib.__TS__SourceMapTraceBack
+local ____exports = {}
+____exports.Mathc = __TS__Class()
+local Mathc = ____exports.Mathc
+Mathc.name = "Mathc"
+function Mathc.prototype.____constructor(self)
+end
+function Mathc.Clamp(self, value, min, max)
+    if value < min then
+        return min
+    end
+    if value > max then
+        return max
+    end
+    return value
+end
+function Mathc.Sign(self, value)
+    if value < 0 then
+        return -1
+    else
+        return 1
+    end
+end
+return ____exports
+ end,
 ["src.classes.Math.Vector3"] = function(...) 
 local ____lualib = require("lualib_bundle")
 local __TS__Class = ____lualib.__TS__Class
 local __TS__New = ____lualib.__TS__New
+local __TS__MathSign = ____lualib.__TS__MathSign
 local Error = ____lualib.Error
 local RangeError = ____lualib.RangeError
 local ReferenceError = ____lualib.ReferenceError
@@ -2918,6 +2949,8 @@ local TypeError = ____lualib.TypeError
 local URIError = ____lualib.URIError
 local __TS__SourceMapTraceBack = ____lualib.__TS__SourceMapTraceBack
 local ____exports = {}
+local ____Mathc = require("src.classes.Math.Mathc")
+local Mathc = ____Mathc.Mathc
 ____exports.Vector3 = __TS__Class()
 local Vector3 = ____exports.Vector3
 Vector3.name = "Vector3"
@@ -2932,6 +2965,18 @@ end
 function Vector3.Zero(self)
     local vector = __TS__New(____exports.Vector3, 0, 0, 0)
     return vector
+end
+function Vector3.prototype.Sign(self)
+    local x = __TS__MathSign(self.x)
+    local y = __TS__MathSign(self.y)
+    local z = __TS__MathSign(self.z)
+    return __TS__New(____exports.Vector3, x, y, z)
+end
+function Vector3.prototype.Clamp(self, min, max)
+    local x = Mathc:Clamp(self.x, min, max)
+    local y = Mathc:Clamp(self.y, min, max)
+    local z = Mathc:Clamp(self.z, min, max)
+    return __TS__New(____exports.Vector3, x, y, z)
 end
 function Vector3.prototype.Dot(self, otherVector)
     local xComp = self.x * otherVector.x
@@ -2981,6 +3026,15 @@ function Vector3.prototype.Multiply(self, number)
     local product = __TS__New(____exports.Vector3, self.x * number, self.y * number, self.z * number)
     return product
 end
+function Vector3.prototype.Divide(self, scalar)
+    if scalar == 0 then
+        error(
+            __TS__New(Error, "[VECTOR] Attempt to divide by 0!"),
+            0
+        )
+    end
+    return __TS__New(____exports.Vector3, self.x / scalar, self.y / scalar, self.z / scalar)
+end
 function Vector3.prototype.Inverse(self)
     local inverted = self:Multiply(-1)
     return inverted
@@ -2993,509 +3047,72 @@ local __TS__Class = ____lualib.__TS__Class
 local __TS__New = ____lualib.__TS__New
 local __TS__SourceMapTraceBack = ____lualib.__TS__SourceMapTraceBack
 local ____exports = {}
-local ____Failure = require("src.classes.Failure")
-local Failure = ____Failure.Failure
-local FailureMode = ____Failure.FailureMode
 local ____Vector3 = require("src.classes.Math.Vector3")
 local Vector3 = ____Vector3.Vector3
-local ____pidcontrollers = require("thirdparty.lua.pidcontrollers")
-local PidBridge = ____pidcontrollers.default
 ____exports.PIDControllerVector = __TS__Class()
 local PIDControllerVector = ____exports.PIDControllerVector
 PIDControllerVector.name = "PIDControllerVector"
 function PIDControllerVector.prototype.____constructor(self, P, I, D, Min, Max)
-    self.P = 0
-    self.I = 0
-    self.D = 0
-    self.Min = 0
-    self.Max = 0
+    self.Error = __TS__New(Vector3, 0, 0, 0)
+    self.Derivative = __TS__New(Vector3, 0, 0, 0)
+    self.Integral = __TS__New(Vector3, 0, 0, 0)
+    self.ContinueIntegralWinding = __TS__New(Vector3, 1, 1, 1)
+    self.IsSameSign = __TS__New(Vector3, 0, 0, 0)
     self.P = P
     self.I = I
     self.D = D
     self.Min = Min
     self.Max = Max
-    self.luaRunFunction = PidBridge:PID_Continuous_Vector(
-        P,
-        I,
-        D,
-        Min,
-        Max
-    )
 end
-function PIDControllerVector.prototype.Run(self, ErrorVector)
-    local rawVectorArray = self:luaRunFunction(ErrorVector.x, ErrorVector.y, ErrorVector.z)
-    if #rawVectorArray ~= 3 then
-        error(
-            __TS__New(Failure, "Cannot Run VECTOR Pid because returned vector is invalid!", FailureMode.MISSUSE),
-            0
-        )
+function PIDControllerVector.prototype.Run(self, errorVector)
+    self.Derivative = errorVector:Subtract(self.Error):Divide(0.05)
+    local errorSign = errorVector:Sign()
+    local errorContinued = __TS__New(Vector3, errorVector.x * self.ContinueIntegralWinding.x, errorVector.y * self.ContinueIntegralWinding.y, errorVector.z * self.ContinueIntegralWinding.z)
+    self.Integral = self.Integral:Add(errorContinued:Multiply(0.05))
+    local output = errorVector:Multiply(self.P)
+    output = output:Add(self.Derivative:Multiply(self.D))
+    output = output:Add(self.Integral:Multiply(self.I))
+    local outputSign = output:Sign()
+    local outputClamped = output:Clamp(self.Min, self.Max)
+    local thrusterSaturation = __TS__New(Vector3, 0, 0, 0)
+    if outputClamped.x == output.x then
+        thrusterSaturation.x = 0
+    else
+        thrusterSaturation.x = 1
     end
-    if rawVectorArray[1] == nil or rawVectorArray[2] == nil or rawVectorArray[3] == nil then
-        error(
-            __TS__New(Failure, "Cannot Run VECTOR Pid because returned vector is invalid!", FailureMode.MISSUSE),
-            0
-        )
+    if outputClamped.y == output.y then
+        thrusterSaturation.y = 0
+    else
+        thrusterSaturation.y = 1
     end
-    return __TS__New(Vector3, rawVectorArray[1], rawVectorArray[2], rawVectorArray[3])
+    if outputClamped.z == output.z then
+        thrusterSaturation.z = 0
+    else
+        thrusterSaturation.z = 1
+    end
+    if errorSign.x == outputSign.x then
+        self.IsSameSign.x = 1
+    else
+        self.IsSameSign.x = 0
+    end
+    if errorSign.y == outputSign.y then
+        self.IsSameSign.y = 1
+    else
+        self.IsSameSign.y = 0
+    end
+    if errorSign.z == outputSign.z then
+        self.IsSameSign.z = 1
+    else
+        self.IsSameSign.z = 0
+    end
+    self.ContinueIntegralWinding.x = 1 - thrusterSaturation.x * self.IsSameSign.x
+    self.ContinueIntegralWinding.y = 1 - thrusterSaturation.y * self.IsSameSign.y
+    self.ContinueIntegralWinding.z = 1 - thrusterSaturation.z * self.IsSameSign.z
+    self.Error = errorVector
+    return outputClamped
 end
 return ____exports
  end,
-["thirdparty.lua.pidcontrollers"] = function(...) 
---os.loadAPI("lib/utilities.lua")
-
-local utilities       = require("thirdparty.lua.utilities")
-local roundTo_vector3 = utilities.roundTo_vector3
-local round_vector3   = utilities.round_vector3
-local clamp_vector3   = utilities.clamp_vector3
-local sign_vector3    = utilities.sign_vector3
-local abs_vector3     = utilities.abs_vector3
-local roundTo         = utilities.roundTo
-local sign            = utilities.sign
-local clamp           = utilities.clamp
-local pidcontrollers  = {}
---[[
-
-Modified by talkinglock for the nether star.
-
-thanks to: Jyota_malcolm
-https://www.reddit.com/r/Stormworks/comments/kei6pg/lua_code_for_a_basic_pid/
-
-
-function pid(p,i,d)
-return{p=p,i=i,d=d,error=0,derivative=0,integral=0,run=function(self,setpoint,process_variable)
-		local error,derivative
-		local integral = 0
-		error = setpoint-process_variable
-		derivative = error-self.error
-		if math.abs(integral*self.i) < 1 then
-			integral = self.integral+error
-		else
-			integral = integral*0.5
-		end
-		
-		self.error = error
-		self.derivative = derivative
-		self.integral = integral
-		
-		return error*self.p + integral*self.i +derivative*self.d
-	end
-}
-end
-]] --
-
-function pidcontrollers.PID_Continuous_Vector(p, i, d, clamp_parameter_min, clamp_parameter_max)
-	local this = {}
-	this.error = vector.new(0, 0, 0)
-	this.derivative = vector.new(0, 0, 0)
-	this.integral = vector.new(0, 0, 0)
-	this.continue_integral_compounding = vector.new(1, 1, 1)
-	this.is_same_sign = vector.new(0, 0, 0)
-
-	function run(error_vector)
-		local error, derivative
-		local integral = vector.new(0, 0, 0)
-
-		error = error_vector
-
-		local error_sign = sign_vector3(error)
-
-		--derivative = (input:sub(self.last_input)):div(0.05)-- anti derivative kick
-		derivative = (error:sub(this.error)):div(0.05) -- had to go back to default derivative :(
-
-		-- need to clamp integral to account for pwm thruster saturation --
-		--https://youtu.be/NVLXCwc8HzM--
-		this.error = error
-
-		local err_x_cont = vector.new(error.x, error.y, error.z)
-		err_x_cont.x = err_x_cont.x * this.continue_integral_compounding.x
-		err_x_cont.y = err_x_cont.y * this.continue_integral_compounding.y
-		err_x_cont.z = err_x_cont.z * this.continue_integral_compounding.z
-
-		integral = this.integral:add(err_x_cont:mul(0.05))
-
-		this.derivative = derivative
-		this.integral = integral
-
-		local output = error:mul(this.p)
-		output = output:add(derivative:mul(this.d))
-		output = output:add(integral:mul(this.i))
-		local output_sign = sign_vector3(output)
-
-		local clamped_output = clamp_vector3(output, clamp_parameter_min, clamp_parameter_max)
-
-		local thruster_is_saturated = vector.new(0, 0, 0)
-
-		thruster_is_saturated.x = clamped_output.x == output.x and 0 or 1
-		thruster_is_saturated.y = clamped_output.y == output.y and 0 or 1
-		thruster_is_saturated.z = clamped_output.z == output.z and 0 or 1
-
-		this.is_same_sign.x = error_sign.x == output_sign.x and 1 or 0
-		this.is_same_sign.y = error_sign.y == output_sign.y and 1 or 0
-		this.is_same_sign.z = error_sign.z == output_sign.z and 1 or 0
-
-		this.continue_integral_compounding.x = 1 - (thruster_is_saturated.x * this.is_same_sign.x)
-		this.continue_integral_compounding.y = 1 - (thruster_is_saturated.y * this.is_same_sign.y)
-		this.continue_integral_compounding.z = 1 - (thruster_is_saturated.z * this.is_same_sign.z)
-
-		return {clamped_output.x, clamped_output.y, clamped_output.z};
-		-- need to clamp integral to account for thruster saturation --
-	end
-end
-
-function pidcontrollers.PID_Continuous_Quaternion(p, i, d, iMax, clamp_parameter_min, clamp_parameter_max)
-	local table = {}
-	local integral = { x = 0, y = 0, z = 0 }
-	local last_error = { x = 0, y = 0, z = 0 }
-	local dt = 0.02;
-	function table:runPer(axis, error)
-		-- Proportional
-		local P = p * error
-
-		-- Integral
-		integral[axis] = integral[axis] + (error * 0.05)
-		integral[axis] = Mathc.clamp(integral[axis], -iMax, iMax);
-		local I = i * integral[axis]
-
-		-- Derivative
-		local derivative = (error - last_error[axis]) / 0.05
-		local D = d * derivative
-
-		last_error[axis] = error
-		local totalOutput = (P + I + D);
-		return Mathc.clamp(totalOutput, clamp_parameter_min, clamp_parameter_max);
-	end
-
-	function table:run(errorQuat)
-		if errorQuat.w < 0 then
-			errorQuat = Quaternion.New(-errorQuat.x, -errorQuat.y, -errorQuat.z, -errorQuat.w);
-		end
-		local angle = 2 * math.acos(math.max(-1, math.min(1, q_err.w)))
-		local s = math.sin(angle / 2)
-		if s == 0 then s = 1 end
-
-		local errX = (errorQuat.x / s) * angle
-		local errY = (errorQuat.y / s) * angle
-		local errZ = (errorQuat.z / s) * angle
-
-		-- D. Run independent PID loops for Pitch, Yaw, Roll
-		local outX = self:runPer("x", errX)
-		local outY = self:runPer("y", errY)
-		local outZ = self:runPer("z", errZ)
-
-		-- The final output type should be a Vector3 (Torque Vector), NOT a Quaternion.
-		-- Assuming your engine has a standard Vector3 object:
-		return Vector3.new(outX, outY, outZ)
-	end
-
-	return table
-end
-
-function pidcontrollers.PID_Continuous_Scalar(p, i, d, clamp_parameter_min, clamp_parameter_max)
-	return {
-		p = p,
-		i = i,
-		d = d,
-		error = 0,
-		derivative = 0,
-		integral = 0,
-		continue_integral_compounding = 1,
-		is_same_sign = 0,
-
-		run = function(self, err)
-			local error, derivative
-			local integral = 0
-			error = err
-			error_sign = sign(error)
-
-			--derivative = (input-self.last_input)/0.05-- anti derivative kick
-			derivative = (error - self.error) / 0.05 -- anti derivative kick
-
-			-- need to clamp integral to account for pwm thruster saturation --
-			--https://youtu.be/NVLXCwc8HzM--
-			self.error = error
-			err_x_cont = error * self.continue_integral_compounding
-
-			integral = self.integral + (err_x_cont * 0.05)
-
-			self.derivative = derivative
-			self.integral = integral
-
-			output = (error * self.p) + (derivative * self.d) + (integral * self.i)
-
-			output_sign = sign(output)
-
-			clamped_output = clamp(output, clamp_parameter_min, clamp_parameter_max)
-
-			thruster_is_saturated = 0
-
-			thruster_is_saturated = clamped_output == output and 0 or 1
-
-			self.is_same_sign = error_sign == output_sign and 1 or 0
-
-			self.continue_integral_compounding = 1 - (thruster_is_saturated * self.is_same_sign)
-
-			return clamped_output
-
-			-- need to clamp integral to account for thruster saturation --
-		end
-	}
-end
-
-function pidcontrollers.PID_Discrete_Vector(p, i, d, clamp_parameter_min, clamp_parameter_max, sample_interval)
-	return {
-		p = p,
-		i = i,
-		d = d,
-		error = vector.new(0, 0, 0),
-		prev_error = vector.new(0, 0, 0),
-		derivative = vector.new(0, 0, 0),
-		integral = vector.new(0, 0, 0),
-		continue_integral_compounding = vector.new(1, 1, 1),
-		is_same_sign = vector.new(0, 0, 0),
-
-		run = function(self, error_vector)
-			local error, prev_error, derivative
-			local integral = vector.new(0, 0, 0)
-
-			error = error_vector
-
-			error_sign = sign_vector3(error)
-
-			--derivative = (input:sub(self.last_input)):div(0.05)-- anti derivative kick
-			derivative = (error:sub(self.error)):div(sample_interval) -- had to go back to default derivative :(
-
-			-- need to clamp integral to account for pwm thruster saturation --
-			--https://youtu.be/NVLXCwc8HzM--
-			self.error = error
-
-			err_x_cont = vector.new(error.x, error.y, error.z)
-			err_x_cont.x = err_x_cont.x * self.continue_integral_compounding.x
-			err_x_cont.y = err_x_cont.y * self.continue_integral_compounding.y
-			err_x_cont.z = err_x_cont.z * self.continue_integral_compounding.z
-
-			local disc_integ_err = self.prev_error:add(err_x_cont:add(self.error:mul(2)))
-
-			integral = self.integral:add(disc_integ_err:mul(sample_interval * 0.5))
-
-			self.derivative = derivative
-			self.integral = integral
-
-			output = error:mul(self.p)
-			output = output:add(derivative:mul(self.d))
-			output = output:add(integral:mul(self.i))
-			output_sign = sign_vector3(output)
-
-			clamped_output = clamp_vector3(output, clamp_parameter_min, clamp_parameter_max)
-
-			thruster_is_saturated = vector.new(0, 0, 0)
-
-			thruster_is_saturated.x = clamped_output.x == output.x and 0 or 1
-			thruster_is_saturated.y = clamped_output.y == output.y and 0 or 1
-			thruster_is_saturated.z = clamped_output.z == output.z and 0 or 1
-
-			self.is_same_sign.x = error_sign.x == output_sign.x and 1 or 0
-			self.is_same_sign.y = error_sign.y == output_sign.y and 1 or 0
-			self.is_same_sign.z = error_sign.z == output_sign.z and 1 or 0
-
-			self.continue_integral_compounding.x = 1 - (thruster_is_saturated.x * self.is_same_sign.x)
-			self.continue_integral_compounding.y = 1 - (thruster_is_saturated.y * self.is_same_sign.y)
-			self.continue_integral_compounding.z = 1 - (thruster_is_saturated.z * self.is_same_sign.z)
-
-			return clamped_output
-
-			-- need to clamp integral to account for thruster saturation --
-		end
-	}
-end
-
-function pidcontrollers.PID_Discrete_Scalar(p, i, d, clamp_parameter_min, clamp_parameter_max, sample_interval)
-	return {
-		p = p,
-		i = i,
-		d = d,
-		error = 0,
-		prev_error = 0,
-		derivative = 0,
-		integral = 0,
-		continue_integral_compounding = 1,
-		is_same_sign = 0,
-
-		run = function(self, err)
-			local error, prev_error, derivative
-			local integral = 0
-			error = err
-			error_sign = sign(error)
-
-			--derivative = (input-self.last_input)/0.05-- anti derivative kick
-			derivative = (error - self.error) / sample_interval -- anti derivative kick
-
-			-- need to clamp integral to account for pwm thruster saturation --
-			--https://youtu.be/NVLXCwc8HzM--
-
-			err_x_cont = error * self.continue_integral_compounding
-
-			integral = self.integral + (sample_interval * 0.5) * (err_x_cont + 2 * self.error + self.prev_error)
-
-			self.prev_error = self.error
-			self.error = error
-			self.derivative = derivative
-			self.integral = integral
-
-			output = (error * self.p) + (derivative * self.d) + (integral * self.i)
-
-			output_sign = sign(output)
-
-			clamped_output = clamp(output, clamp_parameter_min, clamp_parameter_max)
-
-			thruster_is_saturated = 0
-
-			thruster_is_saturated = clamped_output == output and 0 or 1
-
-			self.is_same_sign = error_sign == output_sign and 1 or 0
-
-			self.continue_integral_compounding = 1 - (thruster_is_saturated * self.is_same_sign)
-
-			return clamped_output
-
-			-- need to clamp integral to account for thruster saturation --
-		end
-	}
-end
-
-return pidcontrollers
- end,
-["thirdparty.lua.utilities"] = function(...) 
---PHOBOSS--
---[[ 
-function clampB(x, min, max) --benchmark speed: 0.076612 seconds
-    return math.max(math.min(x, max), min)
-end
-
-function clampC(x, min, max) --benchmark speed: 0.030656 seconds
-    return x < min and min or x > max and max or x
-end
-
-local n = 1e6
-local function benchmarkingTimer(f, n)
-  local clock = os.clock
-  local before = clock()
-  minn = -5
-  maxx = 5
-  for i=1,n do
-    f(i,minn,maxx)
-  end
-  local after = clock()
-  return after-before
-end
-
-print(string.format("clamp A took %f seconds", benchmarkingTimer(clampA, n)))
-print(string.format("clamp B Took %f seconds", benchmarkingTimer(clampB, n)))
-print(string.format("clamp C Took %f seconds", benchmarkingTimer(clampC, n)))
-]]--
-local utilities = {}
-
-function utilities.clamp(x, min, max)--benchmark speed: 0.027751 seconds
-    if x < min then return min end
-    if x > max then return max end
-    return x
-end
-
---[[
--- fast but we can do without it returning 0
-function sign(x)
-  return x>0 and 1 or x<0 and -1 or 0
-end
-]]--
-
---Thanks to rv55 from: https://stackoverflow.com/questions/1318220/lua-decimal-sign
-function utilities.sign(x) --faster, caution: doesn't return 0
-  return x<0 and -1 or 1
-end
-
-function utilities.clamp_vector3(vec,minn,maxx)
-	return vector.new(utilities.clamp(vec.x,minn,maxx),utilities.clamp(vec.y,minn,maxx),utilities.clamp(vec.z,minn,maxx))
-end
-
-function utilities.sign_vector3(vec)
-	return vector.new(utilities.sign(vec.x),utilities.sign(vec.y),utilities.sign(vec.z))
-end
-function utilities.sign_quaternion(vec)
-	return Quaternion.new(utilities.sign(vec.x),utilities.sign(vec.y),utilities.sign(vec.z), utilities.sign(vec.w))
-end
-
-function utilities.abs_vector3(vec)
-	return vector.new(math.abs(vec.x),math.abs(vec.y),math.abs(vec.z))
-end
-
-function utilities.roundTo(value,place)
-	return math.floor(value * place)/place
-end
-
-function utilities.roundTo_vector3(value,place)
-	return vector.new(math.floor(value.x * place)/place,math.floor(value.y * place)/place,math.floor(value.z * place)/place)
-end
-
-function utilities.round_vector3(value)
-	return vector.new(math.floor(value.x + 0.5),math.floor(value.y + 0.5),math.floor(value.z + 0.5))
-end
-
-
---thanks to FrancisPostsHere: https://www.youtube.com/watch?v=ZfRaYTPUHCU
---https://pastebin.pl/view/e157c3e2
-function utilities.quadraticSolver(a,b,c)--at^2 + bt + c = 0
-	local sol_1=nil
-	local sol_2=nil
-	
-	local discriminator = (b*b) - (4*a*c)
-	local discriminator_squareroot = math.sqrt(math.abs(discriminator))
-	local denominator = 2*a
-	
-	if (discriminator==0) then
-		sol_1 = -b/d
-		return discriminator,sol_1,sol_1
-	elseif (discriminator>0) then
-		sol_1 = ((-b)+discriminator_squareroot)/denominator
-		sol_2 = ((-b)-discriminator_squareroot)/denominator
-		return discriminator,sol_1,sol_2
-	end
-	
-	return discriminator,sol_1,sol_2--I would use complex imaginary numbers but... meh
-end
-
-
---distributed PWM redstone algorithm
---[[Thanks to NikZapp: https://www.youtube.com/channel/UCzlyClqJtuPS3IgHOtdP_Jw]]--
-function utilities.pwm()
-	return{
-	last_output_float_error=vector.new(0,0,0),
-	run=function(self,rs)
-		pid_out_w_error = rs:add(self.last_output_float_error)
-		output = utilities.round_vector3(pid_out_w_error)
-		self.last_output_float_error = pid_out_w_error:sub(output)
-		return output
-	end
-	}
-end
-
-
-function utilities.IntegerScroller(value,minimum,maximum)
-	return{
-		value=value,
-		maximum = maximum,
-		minimum = minimum,
-		override=function(self,new_value)
-			value = utilities.clamp(new_value, minimum, maximum)
-		end,
-		set=function(self,delta)
-			value = utilities.clamp(value+delta, minimum, maximum)
-		end,
-		get=function(self)
-			return value
-		end
-	}
-end
-
-return utilities end,
 ["src.classes.Math.Quaternion"] = function(...) 
 local ____lualib = require("lualib_bundle")
 local __TS__Class = ____lualib.__TS__Class
@@ -3537,16 +3154,29 @@ function Quaternion.fromAxisAngles(self, axis, angle)
         ____exports.Quaternion,
         cosAngle,
         normalized.x * sinAngle,
-        normalized.y * cosAngle,
-        normalized.z * cosAngle
+        normalized.y * sinAngle,
+        normalized.z * sinAngle
     )
     return finalQuat
+end
+function Quaternion.prototype.ToAxisAngles(self)
+    local angle = 2 * math.acos(self.w)
+    local devisor = math.sqrt(1 - self.w * self.w)
+    if devisor < ____exports.Quaternion.ANGLE_EPSILON then
+        return {
+            axis = __TS__New(Vector3, 0, 1, 0),
+            angle = angle
+        }
+    end
+    local axis = __TS__New(Vector3, self.x / devisor, self.y / devisor, self.z / devisor)
+    local axisAngles = {axis = axis, angle = angle}
+    return axisAngles
 end
 function Quaternion.prototype.Inverse(self)
     local squaredNorm = self.x ^ 2 + self.y ^ 2 + self.z ^ 2 + self.w ^ 2
     local inverted = __TS__New(
         ____exports.Quaternion,
-        -self.w / squaredNorm,
+        self.w / squaredNorm,
         -self.x / squaredNorm,
         -self.y / squaredNorm,
         -self.z / squaredNorm
@@ -3603,6 +3233,7 @@ function Quaternion.prototype.ConvertVectorToLocalSpace(self, vector)
     local final = __TS__New(Vector3, finalQuat.x, finalQuat.y, finalQuat.z)
     return final
 end
+Quaternion.ANGLE_EPSILON = 1e-8
 return ____exports
  end,
 ["src.lua.bridge.shipBridge"] = function(...) 
@@ -3625,6 +3256,7 @@ local SHIPBRIDGE__GETRELAYOUTPUT = ____shipBridge.SHIPBRIDGE__GETRELAYOUTPUT
 local SHIPBRIDGE__POSITION = ____shipBridge.SHIPBRIDGE__POSITION
 local SHIPBRIDGE__QUATERNION = ____shipBridge.SHIPBRIDGE__QUATERNION
 local SHIPBRIDGE__SETRELAYOUTPUT = ____shipBridge.SHIPBRIDGE__SETRELAYOUTPUT
+local SHIPBRIDGE__GETVELOCITY = ____shipBridge.SHIPBRIDGE__GETVELOCITY
 local ____lstd = require("src.lua.bridge.lstd")
 local lstd = ____lstd.lstd
 ____exports.ShipBridge = __TS__Class()
@@ -3698,7 +3330,7 @@ function ShipBridge.GetQuaternion(self)
     return quaternion
 end
 function ShipBridge.GetVelocity(self)
-    local rawVel = SHIPBRIDGE__POSITION(nil)
+    local rawVel = SHIPBRIDGE__GETVELOCITY(nil)
     if #rawVel ~= 3 then
         error(
             __TS__New(Failure, "Raw velocity data is undefined! Cannot get velocity", FailureMode.MISSUSE),
@@ -3896,6 +3528,23 @@ Recoverability[Recoverability.Unknown] = "Unknown"
 Recoverability.Unrecoverable = 2
 Recoverability[Recoverability.Unrecoverable] = "Unrecoverable"
  end,
+["src.classes.SystemState"] = function(...) 
+local ____lualib = require("lualib_bundle")
+local __TS__SourceMapTraceBack = ____lualib.__TS__SourceMapTraceBack
+local ____exports = {}
+____exports.SystemState = ____exports.SystemState or ({})
+____exports.SystemState.Offline = 0
+____exports.SystemState[____exports.SystemState.Offline] = "Offline"
+____exports.SystemState.Active = 1
+____exports.SystemState[____exports.SystemState.Active] = "Active"
+____exports.SystemState.Degraded = 2
+____exports.SystemState[____exports.SystemState.Degraded] = "Degraded"
+____exports.SystemState.Emergency = 3
+____exports.SystemState[____exports.SystemState.Emergency] = "Emergency"
+____exports.SystemState.Failed = 4
+____exports.SystemState[____exports.SystemState.Failed] = "Failed"
+return ____exports
+ end,
 ["src.classes.Time"] = function(...) 
 local ____lualib = require("lualib_bundle")
 local __TS__Class = ____lualib.__TS__Class
@@ -3938,24 +3587,6 @@ function Timer.prototype.IsFinished(self)
 end
 return ____exports
  end,
-["src.classes.Math.Mathc"] = function(...) 
-local ____lualib = require("lualib_bundle")
-local __TS__Class = ____lualib.__TS__Class
-local __TS__SourceMapTraceBack = ____lualib.__TS__SourceMapTraceBack
-local ____exports = {}
-____exports.Mathc = __TS__Class()
-local Mathc = ____exports.Mathc
-Mathc.name = "Mathc"
-function Mathc.prototype.____constructor(self)
-end
-function Mathc.clamp(self, value, min, max)
-    return math.max(
-        min,
-        math.min(max, value)
-    )
-end
-return ____exports
- end,
 ["src.classes.MainSystems.ReactionControlSystem"] = function(...) 
 local ____lualib = require("lualib_bundle")
 local __TS__Class = ____lualib.__TS__Class
@@ -3976,19 +3607,10 @@ local ____Quaternion = require("src.classes.Math.Quaternion")
 local Quaternion = ____Quaternion.Quaternion
 local ____Vector3 = require("src.classes.Math.Vector3")
 local Vector3 = ____Vector3.Vector3
+local ____SystemState = require("src.classes.SystemState")
+local SystemState = ____SystemState.SystemState
 local ____Thruster = require("src.classes.Thruster")
 local ThrusterState = ____Thruster.ThrusterState
-____exports.RCSState = ____exports.RCSState or ({})
-____exports.RCSState.Offline = 0
-____exports.RCSState[____exports.RCSState.Offline] = "Offline"
-____exports.RCSState.Active = 1
-____exports.RCSState[____exports.RCSState.Active] = "Active"
-____exports.RCSState.Degraded = 2
-____exports.RCSState[____exports.RCSState.Degraded] = "Degraded"
-____exports.RCSState.Emergency = 3
-____exports.RCSState[____exports.RCSState.Emergency] = "Emergency"
-____exports.RCSState.Failed = 4
-____exports.RCSState[____exports.RCSState.Failed] = "Failed"
 local RCSPriority = RCSPriority or ({})
 RCSPriority.TranslationAndRotation = 0
 RCSPriority[RCSPriority.TranslationAndRotation] = "TranslationAndRotation"
@@ -4001,7 +3623,7 @@ local ReactionControlSystem = ____exports.ReactionControlSystem
 ReactionControlSystem.name = "ReactionControlSystem"
 function ReactionControlSystem.prototype.____constructor(self, thrusters, fms)
     self.Thrusters = {}
-    self.state = ____exports.RCSState.Offline
+    self.state = SystemState.Offline
     self.priority = RCSPriority.TranslationAndRotation
     self.DesiredVelocity = __TS__New(Vector3, 0, 0, 0)
     self.DesiredVelocityMagnitude = 0
@@ -4022,10 +3644,13 @@ function ReactionControlSystem.prototype.____constructor(self, thrusters, fms)
     )
     self.Thrusters = thrusters
     self.fms = fms
-    self.failms = fms.failms
+    self.cms = fms.cms
+end
+function ReactionControlSystem.prototype.GetState(self)
+    return self.state
 end
 function ReactionControlSystem.prototype.CatastrophicShutdown(self)
-    self.state = ____exports.RCSState.Failed
+    self.state = SystemState.Failed
     __TS__ArrayForEach(
         self.Thrusters,
         function(____, thruster)
@@ -4047,7 +3672,7 @@ function ReactionControlSystem.prototype.CanThrusterDecelerateSpin(self, thruste
     return false
 end
 function ReactionControlSystem.prototype.EmergencySpinCondition(self)
-    self.state = ____exports.RCSState.Emergency
+    self.state = SystemState.Emergency
     local angularVelocity = ShipBridge:GetAngularVelocity()
     local PossibleDecelerationThrusters = {}
     local NormalDecelerationThrusters = {}
@@ -4078,9 +3703,9 @@ function ReactionControlSystem.prototype.EmergencySpinCondition(self)
 end
 function ReactionControlSystem.prototype.ThrusterLost(self, thruster)
     thruster.State = ThrusterState.Emergency
-    if self.state == ____exports.RCSState.Active then
+    if self.state == SystemState.Active then
         lstd:Log("[RCS] Thruster Failed!")
-        self.state = ____exports.RCSState.Degraded
+        self.state = SystemState.Degraded
     end
 end
 function ReactionControlSystem.prototype.PowerOnSelfTest(self)
@@ -4101,27 +3726,27 @@ function ReactionControlSystem.prototype.PowerOnSelfTest(self)
         end
     )
     if success == true then
-        self.state = ____exports.RCSState.Active
+        self.state = SystemState.Active
     end
     return success
 end
 function ReactionControlSystem.prototype.CalculateThrusterTranslation(self, thruster)
-    local worldSpaceThrustVector = self.CurrentQuaternion:MultiplyByVector(thruster.ThrustVector)
-    local dotToDesiredVector = worldSpaceThrustVector:Dot(self.DesiredVelocityNormalized)
+    local LocalSpaceDesiredVelocity = self.CurrentQuaternion:ConvertVectorToLocalSpace(self.DesiredVelocityNormalized)
+    local dotToDesiredVector = thruster.ThrustVector:Dot(LocalSpaceDesiredVelocity)
     return dotToDesiredVector * self.DesiredVelocityMagnitude
 end
-function ReactionControlSystem.prototype.CalculateThrusterRotation(self, thruster, globalRotationDotVector)
-    local alignment = thruster.Torque:Dot(globalRotationDotVector)
+function ReactionControlSystem.prototype.CalculateThrusterRotation(self, thruster, rotationDotVector)
+    local alignment = thruster.Torque:Normalized():Dot(rotationDotVector)
     return alignment
 end
-function ReactionControlSystem.prototype.ThrusterUpdate(self, thruster, globalRotationDotVector)
+function ReactionControlSystem.prototype.ThrusterUpdate(self, thruster, rotationDotVector)
     local safety = thruster:NoThrustSelfTest()
     if not safety then
         self:ThrusterLost(thruster)
         return
     end
     local translationFactor = self:CalculateThrusterTranslation(thruster)
-    local rotationFactor = self:CalculateThrusterRotation(thruster, globalRotationDotVector)
+    local rotationFactor = self:CalculateThrusterRotation(thruster, rotationDotVector)
     local thrust = 0
     if self.priority == RCSPriority.TranslationAndRotation then
         thrust = (translationFactor + rotationFactor) * 15
@@ -4130,7 +3755,7 @@ function ReactionControlSystem.prototype.ThrusterUpdate(self, thruster, globalRo
     elseif self.priority == RCSPriority.Rotation then
         thrust = (translationFactor * self.fms.config.RCSFailMinorityMultiplier + rotationFactor * self.fms.config.RCSFailMajorityMultiplier) * 15
     end
-    local thrustClamped = Mathc:clamp(thrust, 0, 15)
+    local thrustClamped = Mathc:Clamp(thrust, 0, 15)
     do
         local function ____catch(____error)
             self:ThrusterLost(thruster)
@@ -4143,53 +3768,333 @@ function ReactionControlSystem.prototype.ThrusterUpdate(self, thruster, globalRo
         end
     end
 end
-function ReactionControlSystem.prototype.UpdateRotation(self, currentQuat, errorQuat, SARCASRotationMultiplier)
-    local invertedQuat = currentQuat:Inverse()
-    local worldError = invertedQuat:MultiplyByQuaternion(errorQuat)
-    if worldError.w < 0 then
-        worldError = __TS__New(
-            Quaternion,
-            -worldError.w,
-            -worldError.x,
-            -worldError.y,
-            -worldError.z
-        )
-    end
-    local angle = 2 * math.acos(worldError.w)
-    local devisor = math.sin(angle / 2)
-    local axis = __TS__New(Vector3, worldError.x / devisor, worldError.y / devisor, worldError.z / devisor)
-    local worldAngularVelocity = ShipBridge:GetAngularVelocity()
-    local localAngularVelocity = currentQuat:ConvertVectorToLocalSpace(worldAngularVelocity)
-    local Adjusted = axis:Multiply(angle):Subtract(localAngularVelocity)
-    local finalVector = Adjusted:Multiply(SARCASRotationMultiplier)
-    return finalVector
-end
-function ReactionControlSystem.prototype.Update(self, desiredVelocity, desiredQuaternionAcceleration, SARCASRotationMultiplier)
-    if self.state == ____exports.RCSState.Offline then
+function ReactionControlSystem.prototype.Update(self, desiredVelocity, rotationDotVector)
+    if self.state == SystemState.Offline then
         error(
-            __TS__New(Failure, "Attempt to use R.C.S pre-POST", FailureMode.RCS_POST_FAILURE),
+            __TS__New(Failure, "Attempt to use R.C.S pre-POST", FailureMode.UPDATE_BEFORE_POST),
             0
         )
     end
     if desiredVelocity:Magnitude() == 0 then
         return
     end
-    if self.state == ____exports.RCSState.Failed then
+    if self.state == SystemState.Failed then
         return
     end
     local currentQuaternion = ShipBridge:GetQuaternion()
     self.CurrentQuaternion = currentQuaternion
-    self.ErrorQuaternion = desiredQuaternionAcceleration
     self.DesiredVelocity = desiredVelocity
     self.DesiredVelocityMagnitude = desiredVelocity:Magnitude()
     self.DesiredVelocityNormalized = desiredVelocity:Normalized()
-    local globalRotationDotVector = self:UpdateRotation(currentQuaternion, desiredQuaternionAcceleration, SARCASRotationMultiplier)
     __TS__ArrayForEach(
         self.Thrusters,
         function(____, thruster)
-            self:ThrusterUpdate(thruster, globalRotationDotVector)
+            self:ThrusterUpdate(thruster, rotationDotVector)
         end
     )
+end
+return ____exports
+ end,
+["src.classes.MainSystems.StabilityAugmentationSystem"] = function(...) 
+local ____lualib = require("lualib_bundle")
+local __TS__Class = ____lualib.__TS__Class
+local __TS__New = ____lualib.__TS__New
+local __TS__SourceMapTraceBack = ____lualib.__TS__SourceMapTraceBack
+local ____exports = {}
+local ____pidcontroller = require("thirdparty.tswrappers.pidcontroller")
+local PIDControllerVector = ____pidcontroller.PIDControllerVector
+local ____lstd = require("src.lua.bridge.lstd")
+local lstd = ____lstd.lstd
+local ____shipBridge = require("src.lua.bridge.shipBridge")
+local ShipBridge = ____shipBridge.ShipBridge
+local ____Quaternion = require("src.classes.Math.Quaternion")
+local Quaternion = ____Quaternion.Quaternion
+local ____Vector3 = require("src.classes.Math.Vector3")
+local Vector3 = ____Vector3.Vector3
+local ____SystemState = require("src.classes.SystemState")
+local SystemState = ____SystemState.SystemState
+local ____Failure = require("src.classes.Failure")
+local Failure = ____Failure.Failure
+local FailureMode = ____Failure.FailureMode
+local VectorSanityStatus = VectorSanityStatus or ({})
+VectorSanityStatus.Sane = 0
+VectorSanityStatus[VectorSanityStatus.Sane] = "Sane"
+VectorSanityStatus.Recoverable = 1
+VectorSanityStatus[VectorSanityStatus.Recoverable] = "Recoverable"
+VectorSanityStatus.Insane = 2
+VectorSanityStatus[VectorSanityStatus.Insane] = "Insane"
+local SASActivityStatus = SASActivityStatus or ({})
+SASActivityStatus.Normal = 0
+SASActivityStatus[SASActivityStatus.Normal] = "Normal"
+SASActivityStatus.HoldingPosition = 1
+SASActivityStatus[SASActivityStatus.HoldingPosition] = "HoldingPosition"
+____exports.StabilityAugmentationSystem = __TS__Class()
+local StabilityAugmentationSystem = ____exports.StabilityAugmentationSystem
+StabilityAugmentationSystem.name = "StabilityAugmentationSystem"
+function StabilityAugmentationSystem.prototype.____constructor(self, fms)
+    self.state = SystemState.Offline
+    self.activityState = SASActivityStatus.Normal
+    self.CanPidRetrust = true
+    self.PIDTrustedCount = 0
+    self.PIDTotalRetrusts = 0
+    self.fms = fms
+    self.rcs = fms.RCS
+    self.config = fms.config
+    self.TranslationLoop = __TS__New(
+        PIDControllerVector,
+        self.config.SASTranslationLoop.P,
+        self.config.SASTranslationLoop.I,
+        self.config.SASTranslationLoop.D,
+        self.config.SASTranslationLoop.Min,
+        self.config.SASTranslationLoop.Max
+    )
+    self.RotationLoop = __TS__New(
+        PIDControllerVector,
+        self.config.SASRotationLoop.P,
+        self.config.SASRotationLoop.I,
+        self.config.SASRotationLoop.D,
+        self.config.SASRotationLoop.Min,
+        self.config.SASRotationLoop.Max
+    )
+end
+function StabilityAugmentationSystem.prototype.PowerOnSelfTest(self)
+    local currentQuat
+    local currentAngularVelocity
+    local currentVelocity
+    do
+        local function ____catch(err)
+            lstd:Log("[SAS] POST failed, one or more ShipBridge functions returned jargon. Specific error: " .. tostring(err))
+            return true, false
+        end
+        local ____try, ____hasReturned, ____returnValue = pcall(function()
+            currentQuat = ShipBridge:GetQuaternion()
+            currentAngularVelocity = ShipBridge:GetAngularVelocity()
+            currentVelocity = ShipBridge:GetVelocity()
+        end)
+        if not ____try then
+            ____hasReturned, ____returnValue = ____catch(____hasReturned)
+        end
+        if ____hasReturned then
+            return ____returnValue
+        end
+    end
+    do
+        local function ____catch(err)
+            lstd:Log("[SAS] POST failed, one or more PID loops returned jargon. Specific error: " .. tostring(err))
+            return true, false
+        end
+        local ____try, ____hasReturned, ____returnValue = pcall(function()
+            self.TranslationLoop:Run(currentVelocity)
+            self.RotationLoop:Run(currentAngularVelocity)
+        end)
+        if not ____try then
+            ____hasReturned, ____returnValue = ____catch(____hasReturned)
+        end
+        if ____hasReturned then
+            return ____returnValue
+        end
+    end
+    if self.rcs:GetState() ~= SystemState.Active then
+        lstd:Log("[SAS] POST failed, RCS is not active. Did it post?")
+        return false
+    end
+    self.state = SystemState.Active
+    return true
+end
+function StabilityAugmentationSystem.prototype.GetVelocityVectorSanity(self, velocity)
+    local speed = velocity:Magnitude()
+    if speed > self.config.MaximumForwardSpeed then
+        return VectorSanityStatus.Recoverable
+    end
+    return VectorSanityStatus.Sane
+end
+function StabilityAugmentationSystem.prototype.GetErrorVelocitySanity(self, errorVector, fromVector, toVector)
+    local normalSanity = self:GetVelocityVectorSanity(errorVector)
+    if normalSanity == VectorSanityStatus.Insane then
+        return VectorSanityStatus.Insane
+    end
+    local dot = toVector:Dot(errorVector)
+    if dot > 0 then
+        return VectorSanityStatus.Sane
+    end
+    if normalSanity == VectorSanityStatus.Recoverable then
+        return VectorSanityStatus.Recoverable
+    else
+        return VectorSanityStatus.Insane
+    end
+end
+function StabilityAugmentationSystem.prototype.SanitizeVelocityVector(self, velocity)
+    local status = self:GetVelocityVectorSanity(velocity)
+    local speed = velocity:Magnitude()
+    if status == VectorSanityStatus.Sane then
+        lstd:Log("[SAS] [WARN] Sanity correction performed on already sane vector. Are you missing a sanity check?")
+        return velocity
+    end
+    if status == VectorSanityStatus.Insane then
+        error(
+            __TS__New(Failure, "[SAS] Attempt to sanitize insane vector!", FailureMode.MISSUSE),
+            0
+        )
+    end
+    if speed > self.config.MaximumForwardSpeed then
+        local normalized = velocity:Normalized()
+        local finalVector = normalized:Multiply(speed)
+        return finalVector
+    end
+    lstd:Log("[SAS] Recoverable vector has not implemented issue! Is the function unfinished?")
+    return velocity
+end
+function StabilityAugmentationSystem.prototype.VelocityPIDUpdate(self, PIDSanityStatus, velocityError, PIDResult)
+    if PIDSanityStatus == VectorSanityStatus.Insane then
+        lstd:Log("[SAS] Translation degredation tripped!")
+        self:SwitchLoopsToManual()
+        return self:VelocityManualUpdate(velocityError)
+    end
+    if PIDSanityStatus == VectorSanityStatus.Recoverable then
+        return self:SanitizeVelocityVector(PIDResult)
+    end
+    return PIDResult
+end
+function StabilityAugmentationSystem.prototype.VelocityManualUpdate(self, velocityError)
+    return velocityError:Multiply(self.config.SASManualTranslationMultiplier)
+end
+function StabilityAugmentationSystem.prototype.StabilizeVelocity(self, desiredVelocity)
+    local currentVelocity = ShipBridge:GetVelocity()
+    local velocityError = desiredVelocity:Subtract(currentVelocity)
+    local PIDResult = self.TranslationLoop:Run(velocityError)
+    local PIDSanityStatus = self:GetErrorVelocitySanity(PIDResult, currentVelocity, desiredVelocity)
+    if PIDSanityStatus == VectorSanityStatus.Sane and self.state == SystemState.Degraded then
+        self.PIDTrustedCount = self.PIDTrustedCount + 1
+    elseif PIDSanityStatus == VectorSanityStatus.Insane then
+        self.PIDTrustedCount = 0
+    end
+    if self.state == SystemState.Active then
+        return self:VelocityPIDUpdate(PIDSanityStatus, velocityError, PIDResult)
+    else
+        return self:VelocityManualUpdate(velocityError)
+    end
+end
+function StabilityAugmentationSystem.prototype.IsOrientationPIDSane(self, axis, PIDResult, targetQuat)
+    local targetAxisAngle = targetQuat:ToAxisAngles()
+    if targetAxisAngle.axis:Dot(PIDResult) > 0 then
+        return VectorSanityStatus.Insane
+    end
+    return VectorSanityStatus.Sane
+end
+function StabilityAugmentationSystem.prototype.OrientationManualLoop(self, axis, angle, localAngularVelocity)
+    return axis:Multiply(angle):Multiply(self.config.SASManualRotationMultiplier):Subtract(localAngularVelocity)
+end
+function StabilityAugmentationSystem.prototype.StabilizeOrientation(self, targetQuat)
+    local currentQuat = ShipBridge:GetQuaternion()
+    local invertedQuat = currentQuat:Inverse()
+    local errorQuat = invertedQuat:MultiplyByQuaternion(targetQuat)
+    if errorQuat.w < 0 then
+        errorQuat = __TS__New(
+            Quaternion,
+            -errorQuat.w,
+            -errorQuat.x,
+            -errorQuat.y,
+            -errorQuat.z
+        )
+    end
+    local axisAngle = errorQuat:ToAxisAngles()
+    local axis = axisAngle.axis
+    local angle = axisAngle.angle
+    local worldAngularVelocity = ShipBridge:GetAngularVelocity()
+    local localAngularVelocity = currentQuat:ConvertVectorToLocalSpace(worldAngularVelocity)
+    local PIDFeed = axis:Multiply(angle):Subtract(localAngularVelocity)
+    local PIDResult = self.RotationLoop:Run(PIDFeed)
+    local PIDSanity = self:IsOrientationPIDSane(axis, PIDResult, targetQuat)
+    if PIDSanity == VectorSanityStatus.Insane and self.state == SystemState.Active then
+        lstd:Log("[SAS] Orientation degredation tripped!")
+        self:SwitchLoopsToManual()
+    elseif PIDSanity == VectorSanityStatus.Insane and self.state ~= SystemState.Active then
+        self.PIDTrustedCount = 0
+    elseif PIDSanity == VectorSanityStatus.Sane and self.state == SystemState.Degraded then
+        self.PIDTrustedCount = self.PIDTrustedCount + 1
+    end
+    if self.state == SystemState.Active then
+        return PIDResult
+    else
+        return self:OrientationManualLoop(axis, angle, localAngularVelocity)
+    end
+end
+function StabilityAugmentationSystem.prototype.SwitchLoopsToManual(self)
+    lstd:Log("[SAS] Entering degraded state!!")
+    self.state = SystemState.Degraded
+end
+function StabilityAugmentationSystem.prototype.SwitchLoopsToPID(self)
+    if self.state ~= SystemState.Degraded then
+        lstd:Log("[SAS] Attempt to enter normal state while not in degraded mode!")
+        return
+    end
+    lstd:Log("[SAS] Exiting degraded state!")
+    self.state = SystemState.Active
+end
+function StabilityAugmentationSystem.prototype.HoldPosition(self)
+    lstd:Log("[SAS] Entered holding mode!")
+    self.activityState = SASActivityStatus.HoldingPosition
+end
+function StabilityAugmentationSystem.prototype.UnholdPosition(self)
+    lstd:Log("[SAS] Exited holding mode!")
+    self.activityState = SASActivityStatus.Normal
+end
+function StabilityAugmentationSystem.prototype.TryRetrust(self)
+    if self.PIDTotalRetrusts <= self.config.SASPIDTotalRetrustsBeforeStoppingPIDAttempts then
+        lstd:Log("[SAS] Loops retrusting! Attempt : " .. tostring(self.PIDTotalRetrusts))
+        self.PIDTotalRetrusts = self.PIDTotalRetrusts + 1
+        self:SwitchLoopsToPID()
+    else
+        if self.CanPidRetrust == true then
+            self.CanPidRetrust = false
+            lstd:Log("[SAS] Too many failed PID retrust attempts. PID Loops now offline forever.")
+        end
+    end
+end
+function StabilityAugmentationSystem.prototype.Update(self, desiredVelocity, desiredQuaternion)
+    if self.state == SystemState.Offline then
+        error(
+            __TS__New(Failure, "[SAS] Attempt to Update pre-POST!", FailureMode.UPDATE_BEFORE_POST),
+            0
+        )
+    end
+    if self.rcs:GetState() == SystemState.Failed then
+        lstd:Log("[SAS] Attempt to Update while RCS is failed!")
+        return
+    end
+    if self.state == SystemState.Failed then
+        lstd:Log("[SAS] Attempt to Update while failed, passing through translation data to RCS.")
+        self.fms:SetRCSInput(
+            desiredVelocity,
+            __TS__New(Vector3, 0, 1, 0)
+        )
+    end
+    local vectorSanity = self:GetVelocityVectorSanity(desiredVelocity)
+    if self.activityState == SASActivityStatus.HoldingPosition and vectorSanity == VectorSanityStatus.Insane then
+        desiredVelocity = ShipBridge:GetVelocity():Inverse()
+        desiredQuaternion = self.config.SASBackupQuaternion
+    elseif self.activityState == SASActivityStatus.HoldingPosition and vectorSanity ~= VectorSanityStatus.Insane then
+        self:UnholdPosition()
+    end
+    if vectorSanity == VectorSanityStatus.Insane then
+        self:HoldPosition()
+    end
+    if self.state == SystemState.Degraded and self.PIDTrustedCount >= self.config.SASPIDRestrustsBeforeReattemptingPID then
+        self:TryRetrust()
+    end
+    local stabilizedVelocity = self:StabilizeVelocity(desiredVelocity)
+    local stabilizedErrorRotation = self:StabilizeOrientation(desiredQuaternion)
+    do
+        local function ____catch(____error)
+            lstd:Log("[SAS] FMS-RCS call failed! " .. tostring(____error))
+        end
+        local ____try, ____hasReturned = pcall(function()
+            self.fms:SetRCSInput(stabilizedVelocity, stabilizedErrorRotation)
+        end)
+        if not ____try then
+            ____catch(____hasReturned)
+        end
+    end
 end
 return ____exports
  end,
@@ -4215,10 +4120,13 @@ local ____Vector3 = require("src.classes.Math.Vector3")
 local Vector3 = ____Vector3.Vector3
 local ____Time = require("src.classes.Time")
 local Time = ____Time.Time
-local ____FailureManagementSystem = require("src.classes.MainSystems.FailureManagementSystem")
-local FailureManagementSystem = ____FailureManagementSystem.FailureManagementSystem
+local ____CrisisManagementSystem = require("src.classes.MainSystems.CrisisManagementSystem")
+local CrisisCode = ____CrisisManagementSystem.CrisisCode
+local CrisisManagementSystem = ____CrisisManagementSystem.CrisisManagementSystem
 local ____ReactionControlSystem = require("src.classes.MainSystems.ReactionControlSystem")
 local ReactionControlSystem = ____ReactionControlSystem.ReactionControlSystem
+local ____StabilityAugmentationSystem = require("src.classes.MainSystems.StabilityAugmentationSystem")
+local StabilityAugmentationSystem = ____StabilityAugmentationSystem.StabilityAugmentationSystem
 local FMSState = FMSState or ({})
 FMSState.Offline = 0
 FMSState[FMSState.Offline] = "Offline"
@@ -4235,18 +4143,32 @@ local FlightManagementSystem = ____exports.FlightManagementSystem
 FlightManagementSystem.name = "FlightManagementSystem"
 function FlightManagementSystem.prototype.____constructor(self, config)
     self.state = FMSState.Offline
+    self.rcsDesiredVelocity = __TS__New(Vector3, 0, 0, 0)
+    self.rcsErrorRotation = __TS__New(Vector3, 0, 0, 0)
+    self.rcsInputTimesCalled = 0
     self.config = config
-    self.failms = __TS__New(FailureManagementSystem, self)
+    self.cms = __TS__New(CrisisManagementSystem, self)
     self.RCS = __TS__New(ReactionControlSystem, config.Thrusters, self)
+    self.SAS = __TS__New(StabilityAugmentationSystem, self)
     self.Time = __TS__New(Time, config.tickRate)
 end
+function FlightManagementSystem.prototype.SetRCSInput(self, desiredVelocity, errorRotation)
+    self.rcsInputTimesCalled = self.rcsInputTimesCalled + 1
+    if self.rcsInputTimesCalled > 1 then
+        lstd:Log("[FMS] More then one RCS call this tick!")
+        return
+    end
+    self.rcsDesiredVelocity = desiredVelocity
+    self.rcsErrorRotation = errorRotation
+end
 function FlightManagementSystem.prototype.PowerOnSelfTest(self)
-    if self.RCS == nil then
+    if self.RCS == nil or self.SAS == nil then
         lstd:Log("FMS POST failed! One or more systems not instantiated.")
         return false
     end
     local rcsPostResult = self.RCS:PowerOnSelfTest()
-    if rcsPostResult == false then
+    local sasPostResult = self.SAS:PowerOnSelfTest()
+    if rcsPostResult == false or sasPostResult == false then
         lstd:Log("FMS POST failed! One or more system POSTs failed.")
         return false
     end
@@ -4255,25 +4177,44 @@ end
 function FlightManagementSystem.prototype.StartEmergency(self)
     self.state = FMSState.Emergency
 end
+function FlightManagementSystem.prototype.Update(self)
+    self.SAS:Update(
+        __TS__New(Vector3, -39, 42, -52):Subtract(ShipBridge:GetWorldSpacePosition()),
+        Quaternion:fromAxisAngles(
+            __TS__New(Vector3, 0, 1, 0),
+            3.14
+        )
+    )
+    if self.rcsInputTimesCalled == 1 then
+        do
+            local function ____catch(____error)
+                lstd:Log("[FMS] RCS Failed to update!")
+                self.cms:Distress(CrisisCode.RCS_UPDATE_ERRORED)
+            end
+            local ____try, ____hasReturned = pcall(function()
+                self.RCS:Update(self.rcsDesiredVelocity, self.rcsErrorRotation)
+            end)
+            if not ____try then
+                ____catch(____hasReturned)
+            end
+        end
+    else
+        lstd:Log("[FMS] RCS not called this loop!")
+    end
+    self.rcsInputTimesCalled = 0
+    self.Time:Tick()
+    lstd:Sleep(self.config.tickRate)
+end
 function FlightManagementSystem.prototype.Loop(self)
     while true do
-        self.RCS:Update(
-            __TS__New(Vector3, -25, 41, -52):Subtract(ShipBridge:GetWorldSpacePosition()),
-            Quaternion:fromAxisAngles(
-                __TS__New(Vector3, 0, 1, 0),
-                math.pi
-            ),
-            1
-        )
-        self.Time:Tick()
-        lstd:Sleep(self.config.tickRate)
+        self:Update()
     end
 end
 function FlightManagementSystem.prototype.Bootstrap(self)
     local POSTResult = self:PowerOnSelfTest()
     if POSTResult == false then
         error(
-            __TS__New(Error, "FMS POST failed"),
+            __TS__New(Error, "[FMS] POST failed!"),
             0
         )
     end
@@ -4281,19 +4222,70 @@ function FlightManagementSystem.prototype.Bootstrap(self)
 end
 return ____exports
  end,
-["src.classes.MainSystems.FailureManagementSystem"] = function(...) 
+["src.classes.MainSystems.CrisisManagementSystem"] = function(...) 
 local ____lualib = require("lualib_bundle")
 local __TS__Class = ____lualib.__TS__Class
 local __TS__SourceMapTraceBack = ____lualib.__TS__SourceMapTraceBack
 local ____exports = {}
-____exports.FailureManagementSystem = __TS__Class()
-local FailureManagementSystem = ____exports.FailureManagementSystem
-FailureManagementSystem.name = "FailureManagementSystem"
-function FailureManagementSystem.prototype.____constructor(self, fms)
+local ____lstd = require("src.lua.bridge.lstd")
+local lstd = ____lstd.lstd
+____exports.SystemName = ____exports.SystemName or ({})
+____exports.SystemName.ReactionControlSystem = 0
+____exports.SystemName[____exports.SystemName.ReactionControlSystem] = "ReactionControlSystem"
+____exports.SystemName.StabilityAugmentationSystem = 1
+____exports.SystemName[____exports.SystemName.StabilityAugmentationSystem] = "StabilityAugmentationSystem"
+____exports.SystemName.TerrianAndDestructionAvoidanceSystem = 2
+____exports.SystemName[____exports.SystemName.TerrianAndDestructionAvoidanceSystem] = "TerrianAndDestructionAvoidanceSystem"
+____exports.CrisisCode = ____exports.CrisisCode or ({})
+____exports.CrisisCode.SAS_LOOPS_FAILED = 0
+____exports.CrisisCode[____exports.CrisisCode.SAS_LOOPS_FAILED] = "SAS_LOOPS_FAILED"
+____exports.CrisisCode.RCS_UPDATE_ERRORED = 1
+____exports.CrisisCode[____exports.CrisisCode.RCS_UPDATE_ERRORED] = "RCS_UPDATE_ERRORED"
+____exports.CrisisManagementSystem = __TS__Class()
+local CrisisManagementSystem = ____exports.CrisisManagementSystem
+CrisisManagementSystem.name = "CrisisManagementSystem"
+function CrisisManagementSystem.prototype.____constructor(self, fms)
     self.fms = fms
     self.rcs = fms.RCS
 end
+function CrisisManagementSystem.prototype.CrisisCode_SAS_LOOP_FAILED(self)
+end
+function CrisisManagementSystem.prototype.CrisisCode_RCS_UPDATE_ERRORED(self)
+end
+function CrisisManagementSystem.prototype.Distress(self, signal)
+    repeat
+        local ____switch6 = signal
+        local ____cond6 = ____switch6 == ____exports.CrisisCode.SAS_LOOPS_FAILED
+        if ____cond6 then
+            do
+                self:CrisisCode_SAS_LOOP_FAILED()
+                break
+            end
+        end
+        ____cond6 = ____cond6 or ____switch6 == ____exports.CrisisCode.RCS_UPDATE_ERRORED
+        if ____cond6 then
+            do
+                self:CrisisCode_RCS_UPDATE_ERRORED()
+                break
+            end
+        end
+        do
+            do
+                lstd:Log("[CMS] Recieved unhandled distress signal! " .. tostring(signal))
+                break
+            end
+        end
+    until true
+end
+function CrisisManagementSystem.prototype.SystemIsAlive(self, system)
+end
+function CrisisManagementSystem.prototype.Update(self)
+end
 return ____exports
+ end,
+["src.classes.MainSystems.Kernel"] = function(...) 
+local ____lualib = require("lualib_bundle")
+local __TS__SourceMapTraceBack = ____lualib.__TS__SourceMapTraceBack
  end,
 ["src.entry.drone"] = function(...) 
 local ____lualib = require("lualib_bundle")
@@ -4302,21 +4294,39 @@ local __TS__SourceMapTraceBack = ____lualib.__TS__SourceMapTraceBack
 local ____exports = {}
 local ____FlightManagementSystem = require("src.classes.MainSystems.FlightManagementSystem")
 local FlightManagementSystem = ____FlightManagementSystem.FlightManagementSystem
+local ____Quaternion = require("src.classes.Math.Quaternion")
+local Quaternion = ____Quaternion.Quaternion
 local ____Vector3 = require("src.classes.Math.Vector3")
 local Vector3 = ____Vector3.Vector3
 local ____Thruster = require("src.classes.Thruster")
 local Thruster = ____Thruster.Thruster
 local config = {
-    SARCASRotationLoop = {
-        P = 2,
+    SASRotationLoop = {
+        P = 0.3,
         I = 0,
         D = 0,
-        Min = 0,
-        Max = 0
+        Min = -1,
+        Max = 1
     },
+    SASTranslationLoop = {
+        P = 0.2,
+        I = 0.01,
+        D = 0,
+        Min = -1,
+        Max = 1
+    },
+    SASPIDRestrustsBeforeReattemptingPID = 10,
+    SASPIDTotalRetrustsBeforeStoppingPIDAttempts = 5,
+    SASBackupQuaternion = Quaternion:fromAxisAngles(
+        __TS__New(Vector3, 0, 1, 0),
+        math.pi
+    ),
+    SASManualRotationMultiplier = 0.5,
+    SASManualTranslationMultiplier = 0.5,
+    MaximumForwardSpeed = 30,
     MinimumThrusterRotationAuthority = 0.2,
-    RCSFailMajorityMultiplier = 0.7,
-    RCSFailMinorityMultiplier = 0.3,
+    RCSFailMajorityMultiplier = 0.5,
+    RCSFailMinorityMultiplier = 0.5,
     tickRate = 0.05,
     Thrusters = {
         __TS__New(
@@ -4495,6 +4505,6 @@ return ____exports
  end,
 }
 local __TS__SourceMapTraceBack = require("lualib_bundle").__TS__SourceMapTraceBack
-__TS__SourceMapTraceBack(debug.getinfo(1).short_src, {["2836"] = {line = 1, file = "lstd.ts"},["2837"] = {line = 1, file = "lstd.ts"},["2838"] = {line = 1, file = "lstd.ts"},["2839"] = {line = 3, file = "lstd.ts"},["2840"] = {line = 3, file = "lstd.ts"},["2841"] = {line = 3, file = "lstd.ts"},["2843"] = {line = 3, file = "lstd.ts"},["2844"] = {line = 4, file = "lstd.ts"},["2845"] = {line = 5, file = "lstd.ts"},["2846"] = {line = 4, file = "lstd.ts"},["2847"] = {line = 7, file = "lstd.ts"},["2848"] = {line = 8, file = "lstd.ts"},["2849"] = {line = 7, file = "lstd.ts"},["2882"] = {line = 5, file = "Failure.ts"},["2883"] = {line = 6, file = "Failure.ts"},["2884"] = {line = 6, file = "Failure.ts"},["2885"] = {line = 7, file = "Failure.ts"},["2886"] = {line = 7, file = "Failure.ts"},["2887"] = {line = 8, file = "Failure.ts"},["2888"] = {line = 8, file = "Failure.ts"},["2889"] = {line = 9, file = "Failure.ts"},["2890"] = {line = 9, file = "Failure.ts"},["2891"] = {line = 10, file = "Failure.ts"},["2892"] = {line = 10, file = "Failure.ts"},["2893"] = {line = 11, file = "Failure.ts"},["2894"] = {line = 11, file = "Failure.ts"},["2895"] = {line = 13, file = "Failure.ts"},["2896"] = {line = 13, file = "Failure.ts"},["2897"] = {line = 13, file = "Failure.ts"},["2898"] = {line = 13, file = "Failure.ts"},["2899"] = {line = 16, file = "Failure.ts"},["2900"] = {line = 13, file = "Failure.ts"},["2901"] = {line = 18, file = "Failure.ts"},["2902"] = {line = 18, file = "Failure.ts"},["2903"] = {line = 18, file = "Failure.ts"},["2904"] = {line = 14, file = "Failure.ts"},["2905"] = {line = 19, file = "Failure.ts"},["2906"] = {line = 16, file = "Failure.ts"},["2921"] = {line = 2, file = "Vector3.ts"},["2922"] = {line = 2, file = "Vector3.ts"},["2923"] = {line = 2, file = "Vector3.ts"},["2924"] = {line = 6, file = "Vector3.ts"},["2925"] = {line = 3, file = "Vector3.ts"},["2926"] = {line = 4, file = "Vector3.ts"},["2927"] = {line = 5, file = "Vector3.ts"},["2928"] = {line = 7, file = "Vector3.ts"},["2929"] = {line = 8, file = "Vector3.ts"},["2930"] = {line = 9, file = "Vector3.ts"},["2931"] = {line = 6, file = "Vector3.ts"},["2932"] = {line = 12, file = "Vector3.ts"},["2933"] = {line = 13, file = "Vector3.ts"},["2934"] = {line = 14, file = "Vector3.ts"},["2935"] = {line = 12, file = "Vector3.ts"},["2936"] = {line = 17, file = "Vector3.ts"},["2937"] = {line = 18, file = "Vector3.ts"},["2938"] = {line = 19, file = "Vector3.ts"},["2939"] = {line = 20, file = "Vector3.ts"},["2940"] = {line = 21, file = "Vector3.ts"},["2941"] = {line = 22, file = "Vector3.ts"},["2942"] = {line = 17, file = "Vector3.ts"},["2943"] = {line = 24, file = "Vector3.ts"},["2944"] = {line = 25, file = "Vector3.ts"},["2945"] = {line = 30, file = "Vector3.ts"},["2946"] = {line = 24, file = "Vector3.ts"},["2947"] = {line = 34, file = "Vector3.ts"},["2948"] = {line = 36, file = "Vector3.ts"},["2949"] = {line = 38, file = "Vector3.ts"},["2951"] = {line = 40, file = "Vector3.ts"},["2952"] = {line = 34, file = "Vector3.ts"},["2953"] = {line = 43, file = "Vector3.ts"},["2954"] = {line = 44, file = "Vector3.ts"},["2955"] = {line = 45, file = "Vector3.ts"},["2956"] = {line = 43, file = "Vector3.ts"},["2957"] = {line = 47, file = "Vector3.ts"},["2958"] = {line = 48, file = "Vector3.ts"},["2959"] = {line = 49, file = "Vector3.ts"},["2961"] = {line = 50, file = "Vector3.ts"},["2965"] = {line = 52, file = "Vector3.ts"},["2966"] = {line = 57, file = "Vector3.ts"},["2967"] = {line = 47, file = "Vector3.ts"},["2968"] = {line = 60, file = "Vector3.ts"},["2969"] = {line = 61, file = "Vector3.ts"},["2970"] = {line = 66, file = "Vector3.ts"},["2971"] = {line = 60, file = "Vector3.ts"},["2972"] = {line = 68, file = "Vector3.ts"},["2973"] = {line = 69, file = "Vector3.ts"},["2974"] = {line = 74, file = "Vector3.ts"},["2975"] = {line = 68, file = "Vector3.ts"},["2976"] = {line = 76, file = "Vector3.ts"},["2977"] = {line = 77, file = "Vector3.ts"},["2978"] = {line = 82, file = "Vector3.ts"},["2979"] = {line = 76, file = "Vector3.ts"},["2980"] = {line = 84, file = "Vector3.ts"},["2981"] = {line = 85, file = "Vector3.ts"},["2982"] = {line = 90, file = "Vector3.ts"},["2983"] = {line = 84, file = "Vector3.ts"},["2984"] = {line = 92, file = "Vector3.ts"},["2985"] = {line = 94, file = "Vector3.ts"},["2986"] = {line = 95, file = "Vector3.ts"},["2987"] = {line = 92, file = "Vector3.ts"},["2996"] = {line = 1, file = "pidcontroller.ts"},["2997"] = {line = 1, file = "pidcontroller.ts"},["2998"] = {line = 1, file = "pidcontroller.ts"},["2999"] = {line = 2, file = "pidcontroller.ts"},["3000"] = {line = 2, file = "pidcontroller.ts"},["3001"] = {line = 3, file = "pidcontroller.ts"},["3002"] = {line = 3, file = "pidcontroller.ts"},["3003"] = {line = 5, file = "pidcontroller.ts"},["3004"] = {line = 5, file = "pidcontroller.ts"},["3005"] = {line = 5, file = "pidcontroller.ts"},["3006"] = {line = 12, file = "pidcontroller.ts"},["3007"] = {line = 6, file = "pidcontroller.ts"},["3008"] = {line = 7, file = "pidcontroller.ts"},["3009"] = {line = 8, file = "pidcontroller.ts"},["3010"] = {line = 9, file = "pidcontroller.ts"},["3011"] = {line = 10, file = "pidcontroller.ts"},["3012"] = {line = 13, file = "pidcontroller.ts"},["3013"] = {line = 14, file = "pidcontroller.ts"},["3014"] = {line = 15, file = "pidcontroller.ts"},["3015"] = {line = 16, file = "pidcontroller.ts"},["3016"] = {line = 17, file = "pidcontroller.ts"},["3017"] = {line = 18, file = "pidcontroller.ts"},["3018"] = {line = 18, file = "pidcontroller.ts"},["3019"] = {line = 18, file = "pidcontroller.ts"},["3020"] = {line = 18, file = "pidcontroller.ts"},["3021"] = {line = 18, file = "pidcontroller.ts"},["3022"] = {line = 18, file = "pidcontroller.ts"},["3023"] = {line = 18, file = "pidcontroller.ts"},["3024"] = {line = 12, file = "pidcontroller.ts"},["3025"] = {line = 21, file = "pidcontroller.ts"},["3026"] = {line = 23, file = "pidcontroller.ts"},["3027"] = {line = 24, file = "pidcontroller.ts"},["3029"] = {line = 26, file = "pidcontroller.ts"},["3033"] = {line = 28, file = "pidcontroller.ts"},["3035"] = {line = 30, file = "pidcontroller.ts"},["3039"] = {line = 33, file = "pidcontroller.ts"},["3040"] = {line = 21, file = "pidcontroller.ts"},["3505"] = {line = 1, file = "Quaternion.ts"},["3506"] = {line = 1, file = "Quaternion.ts"},["3507"] = {line = 3, file = "Quaternion.ts"},["3508"] = {line = 3, file = "Quaternion.ts"},["3509"] = {line = 3, file = "Quaternion.ts"},["3510"] = {line = 9, file = "Quaternion.ts"},["3511"] = {line = 4, file = "Quaternion.ts"},["3512"] = {line = 5, file = "Quaternion.ts"},["3513"] = {line = 6, file = "Quaternion.ts"},["3514"] = {line = 7, file = "Quaternion.ts"},["3515"] = {line = 11, file = "Quaternion.ts"},["3516"] = {line = 12, file = "Quaternion.ts"},["3517"] = {line = 13, file = "Quaternion.ts"},["3518"] = {line = 14, file = "Quaternion.ts"},["3519"] = {line = 9, file = "Quaternion.ts"},["3520"] = {line = 17, file = "Quaternion.ts"},["3521"] = {line = 19, file = "Quaternion.ts"},["3522"] = {line = 21, file = "Quaternion.ts"},["3523"] = {line = 22, file = "Quaternion.ts"},["3524"] = {line = 22, file = "Quaternion.ts"},["3525"] = {line = 22, file = "Quaternion.ts"},["3526"] = {line = 22, file = "Quaternion.ts"},["3527"] = {line = 22, file = "Quaternion.ts"},["3528"] = {line = 22, file = "Quaternion.ts"},["3529"] = {line = 22, file = "Quaternion.ts"},["3530"] = {line = 23, file = "Quaternion.ts"},["3532"] = {line = 26, file = "Quaternion.ts"},["3533"] = {line = 27, file = "Quaternion.ts"},["3534"] = {line = 29, file = "Quaternion.ts"},["3535"] = {line = 30, file = "Quaternion.ts"},["3536"] = {line = 32, file = "Quaternion.ts"},["3537"] = {line = 32, file = "Quaternion.ts"},["3538"] = {line = 32, file = "Quaternion.ts"},["3539"] = {line = 32, file = "Quaternion.ts"},["3540"] = {line = 32, file = "Quaternion.ts"},["3541"] = {line = 32, file = "Quaternion.ts"},["3542"] = {line = 32, file = "Quaternion.ts"},["3543"] = {line = 33, file = "Quaternion.ts"},["3544"] = {line = 17, file = "Quaternion.ts"},["3545"] = {line = 36, file = "Quaternion.ts"},["3546"] = {line = 38, file = "Quaternion.ts"},["3547"] = {line = 39, file = "Quaternion.ts"},["3548"] = {line = 39, file = "Quaternion.ts"},["3549"] = {line = 39, file = "Quaternion.ts"},["3550"] = {line = 39, file = "Quaternion.ts"},["3551"] = {line = 39, file = "Quaternion.ts"},["3552"] = {line = 39, file = "Quaternion.ts"},["3553"] = {line = 39, file = "Quaternion.ts"},["3554"] = {line = 40, file = "Quaternion.ts"},["3555"] = {line = 36, file = "Quaternion.ts"},["3556"] = {line = 43, file = "Quaternion.ts"},["3557"] = {line = 45, file = "Quaternion.ts"},["3558"] = {line = 46, file = "Quaternion.ts"},["3559"] = {line = 47, file = "Quaternion.ts"},["3560"] = {line = 49, file = "Quaternion.ts"},["3561"] = {line = 50, file = "Quaternion.ts"},["3562"] = {line = 51, file = "Quaternion.ts"},["3563"] = {line = 57, file = "Quaternion.ts"},["3564"] = {line = 62, file = "Quaternion.ts"},["3565"] = {line = 43, file = "Quaternion.ts"},["3566"] = {line = 65, file = "Quaternion.ts"},["3567"] = {line = 67, file = "Quaternion.ts"},["3568"] = {line = 68, file = "Quaternion.ts"},["3569"] = {line = 69, file = "Quaternion.ts"},["3570"] = {line = 70, file = "Quaternion.ts"},["3571"] = {line = 71, file = "Quaternion.ts"},["3572"] = {line = 71, file = "Quaternion.ts"},["3573"] = {line = 71, file = "Quaternion.ts"},["3574"] = {line = 71, file = "Quaternion.ts"},["3575"] = {line = 71, file = "Quaternion.ts"},["3576"] = {line = 71, file = "Quaternion.ts"},["3577"] = {line = 71, file = "Quaternion.ts"},["3578"] = {line = 72, file = "Quaternion.ts"},["3579"] = {line = 65, file = "Quaternion.ts"},["3580"] = {line = 74, file = "Quaternion.ts"},["3581"] = {line = 76, file = "Quaternion.ts"},["3582"] = {line = 76, file = "Quaternion.ts"},["3583"] = {line = 76, file = "Quaternion.ts"},["3584"] = {line = 76, file = "Quaternion.ts"},["3585"] = {line = 76, file = "Quaternion.ts"},["3586"] = {line = 76, file = "Quaternion.ts"},["3587"] = {line = 76, file = "Quaternion.ts"},["3588"] = {line = 77, file = "Quaternion.ts"},["3589"] = {line = 78, file = "Quaternion.ts"},["3590"] = {line = 79, file = "Quaternion.ts"},["3591"] = {line = 80, file = "Quaternion.ts"},["3592"] = {line = 74, file = "Quaternion.ts"},["3593"] = {line = 83, file = "Quaternion.ts"},["3594"] = {line = 85, file = "Quaternion.ts"},["3595"] = {line = 85, file = "Quaternion.ts"},["3596"] = {line = 85, file = "Quaternion.ts"},["3597"] = {line = 85, file = "Quaternion.ts"},["3598"] = {line = 85, file = "Quaternion.ts"},["3599"] = {line = 85, file = "Quaternion.ts"},["3600"] = {line = 85, file = "Quaternion.ts"},["3601"] = {line = 86, file = "Quaternion.ts"},["3602"] = {line = 87, file = "Quaternion.ts"},["3603"] = {line = 88, file = "Quaternion.ts"},["3604"] = {line = 89, file = "Quaternion.ts"},["3605"] = {line = 83, file = "Quaternion.ts"},["3614"] = {line = 3, file = "shipBridge.ts"},["3615"] = {line = 3, file = "shipBridge.ts"},["3616"] = {line = 3, file = "shipBridge.ts"},["3617"] = {line = 4, file = "shipBridge.ts"},["3618"] = {line = 4, file = "shipBridge.ts"},["3619"] = {line = 5, file = "shipBridge.ts"},["3620"] = {line = 5, file = "shipBridge.ts"},["3621"] = {line = 6, file = "shipBridge.ts"},["3622"] = {line = 6, file = "shipBridge.ts"},["3623"] = {line = 6, file = "shipBridge.ts"},["3624"] = {line = 6, file = "shipBridge.ts"},["3625"] = {line = 6, file = "shipBridge.ts"},["3626"] = {line = 6, file = "shipBridge.ts"},["3627"] = {line = 6, file = "shipBridge.ts"},["3628"] = {line = 7, file = "shipBridge.ts"},["3629"] = {line = 7, file = "shipBridge.ts"},["3630"] = {line = 9, file = "shipBridge.ts"},["3631"] = {line = 9, file = "shipBridge.ts"},["3632"] = {line = 9, file = "shipBridge.ts"},["3634"] = {line = 9, file = "shipBridge.ts"},["3635"] = {line = 11, file = "shipBridge.ts"},["3636"] = {line = 13, file = "shipBridge.ts"},["3637"] = {line = 14, file = "shipBridge.ts"},["3639"] = {line = 15, file = "shipBridge.ts"},["3643"] = {line = 17, file = "shipBridge.ts"},["3645"] = {line = 19, file = "shipBridge.ts"},["3649"] = {line = 21, file = "shipBridge.ts"},["3650"] = {line = 22, file = "shipBridge.ts"},["3651"] = {line = 11, file = "shipBridge.ts"},["3652"] = {line = 24, file = "shipBridge.ts"},["3653"] = {line = 26, file = "shipBridge.ts"},["3654"] = {line = 24, file = "shipBridge.ts"},["3655"] = {line = 28, file = "shipBridge.ts"},["3656"] = {line = 30, file = "shipBridge.ts"},["3657"] = {line = 31, file = "shipBridge.ts"},["3659"] = {line = 32, file = "shipBridge.ts"},["3664"] = {line = 28, file = "shipBridge.ts"},["3665"] = {line = 36, file = "shipBridge.ts"},["3666"] = {line = 38, file = "shipBridge.ts"},["3667"] = {line = 39, file = "shipBridge.ts"},["3668"] = {line = 40, file = "shipBridge.ts"},["3671"] = {line = 44, file = "shipBridge.ts"},["3675"] = {line = 36, file = "shipBridge.ts"},["3676"] = {line = 47, file = "shipBridge.ts"},["3677"] = {line = 49, file = "shipBridge.ts"},["3678"] = {line = 50, file = "shipBridge.ts"},["3679"] = {line = 51, file = "shipBridge.ts"},["3681"] = {line = 52, file = "shipBridge.ts"},["3685"] = {line = 54, file = "shipBridge.ts"},["3687"] = {line = 56, file = "shipBridge.ts"},["3691"] = {line = 58, file = "shipBridge.ts"},["3692"] = {line = 58, file = "shipBridge.ts"},["3693"] = {line = 58, file = "shipBridge.ts"},["3694"] = {line = 58, file = "shipBridge.ts"},["3695"] = {line = 58, file = "shipBridge.ts"},["3696"] = {line = 58, file = "shipBridge.ts"},["3697"] = {line = 58, file = "shipBridge.ts"},["3698"] = {line = 59, file = "shipBridge.ts"},["3699"] = {line = 47, file = "shipBridge.ts"},["3700"] = {line = 61, file = "shipBridge.ts"},["3701"] = {line = 63, file = "shipBridge.ts"},["3702"] = {line = 64, file = "shipBridge.ts"},["3704"] = {line = 65, file = "shipBridge.ts"},["3708"] = {line = 67, file = "shipBridge.ts"},["3710"] = {line = 69, file = "shipBridge.ts"},["3714"] = {line = 71, file = "shipBridge.ts"},["3715"] = {line = 72, file = "shipBridge.ts"},["3716"] = {line = 61, file = "shipBridge.ts"},["3717"] = {line = 74, file = "shipBridge.ts"},["3718"] = {line = 76, file = "shipBridge.ts"},["3719"] = {line = 77, file = "shipBridge.ts"},["3721"] = {line = 78, file = "shipBridge.ts"},["3725"] = {line = 80, file = "shipBridge.ts"},["3727"] = {line = 82, file = "shipBridge.ts"},["3731"] = {line = 84, file = "shipBridge.ts"},["3732"] = {line = 85, file = "shipBridge.ts"},["3733"] = {line = 74, file = "shipBridge.ts"},["3798"] = {line = 1, file = "Thruster.ts"},["3799"] = {line = 1, file = "Thruster.ts"},["3800"] = {line = 2, file = "Thruster.ts"},["3801"] = {line = 2, file = "Thruster.ts"},["3802"] = {line = 4, file = "Thruster.ts"},["3803"] = {line = 4, file = "Thruster.ts"},["3804"] = {line = 6, file = "Thruster.ts"},["3805"] = {line = 8, file = "Thruster.ts"},["3806"] = {line = 8, file = "Thruster.ts"},["3807"] = {line = 9, file = "Thruster.ts"},["3808"] = {line = 9, file = "Thruster.ts"},["3809"] = {line = 10, file = "Thruster.ts"},["3810"] = {line = 10, file = "Thruster.ts"},["3811"] = {line = 11, file = "Thruster.ts"},["3812"] = {line = 11, file = "Thruster.ts"},["3813"] = {line = 12, file = "Thruster.ts"},["3814"] = {line = 12, file = "Thruster.ts"},["3815"] = {line = 14, file = "Thruster.ts"},["3816"] = {line = 16, file = "Thruster.ts"},["3817"] = {line = 16, file = "Thruster.ts"},["3818"] = {line = 17, file = "Thruster.ts"},["3819"] = {line = 17, file = "Thruster.ts"},["3820"] = {line = 18, file = "Thruster.ts"},["3821"] = {line = 18, file = "Thruster.ts"},["3822"] = {line = 21, file = "Thruster.ts"},["3823"] = {line = 21, file = "Thruster.ts"},["3824"] = {line = 21, file = "Thruster.ts"},["3825"] = {line = 65, file = "Thruster.ts"},["3826"] = {line = 23, file = "Thruster.ts"},["3827"] = {line = 24, file = "Thruster.ts"},["3828"] = {line = 27, file = "Thruster.ts"},["3829"] = {line = 28, file = "Thruster.ts"},["3830"] = {line = 29, file = "Thruster.ts"},["3831"] = {line = 30, file = "Thruster.ts"},["3832"] = {line = 31, file = "Thruster.ts"},["3833"] = {line = 66, file = "Thruster.ts"},["3834"] = {line = 67, file = "Thruster.ts"},["3835"] = {line = 68, file = "Thruster.ts"},["3836"] = {line = 69, file = "Thruster.ts"},["3837"] = {line = 71, file = "Thruster.ts"},["3838"] = {line = 72, file = "Thruster.ts"},["3839"] = {line = 65, file = "Thruster.ts"},["3840"] = {line = 34, file = "Thruster.ts"},["3841"] = {line = 37, file = "Thruster.ts"},["3842"] = {line = 38, file = "Thruster.ts"},["3843"] = {line = 39, file = "Thruster.ts"},["3845"] = {line = 41, file = "Thruster.ts"},["3846"] = {line = 34, file = "Thruster.ts"},["3847"] = {line = 43, file = "Thruster.ts"},["3848"] = {line = 45, file = "Thruster.ts"},["3849"] = {line = 43, file = "Thruster.ts"},["3850"] = {line = 48, file = "Thruster.ts"},["3853"] = {line = 60, file = "Thruster.ts"},["3854"] = {line = 61, file = "Thruster.ts"},["3857"] = {line = 51, file = "Thruster.ts"},["3858"] = {line = 51, file = "Thruster.ts"},["3860"] = {line = 52, file = "Thruster.ts"},["3861"] = {line = 53, file = "Thruster.ts"},["3862"] = {line = 53, file = "Thruster.ts"},["3863"] = {line = 53, file = "Thruster.ts"},["3865"] = {line = 55, file = "Thruster.ts"},["3866"] = {line = 56, file = "Thruster.ts"},["3867"] = {line = 56, file = "Thruster.ts"},["3868"] = {line = 56, file = "Thruster.ts"},["3870"] = {line = 57, file = "Thruster.ts"},["3876"] = {line = 50, file = "Thruster.ts"},["3879"] = {line = 48, file = "Thruster.ts"},["3891"] = {line = 1, file = "Recoverability.ts"},["3892"] = {line = 1, file = "Recoverability.ts"},["3893"] = {line = 1, file = "Recoverability.ts"},["3894"] = {line = 1, file = "Recoverability.ts"},["3895"] = {line = 1, file = "Recoverability.ts"},["3896"] = {line = 1, file = "Recoverability.ts"},["3897"] = {line = 1, file = "Recoverability.ts"},["3904"] = {line = 1, file = "Time.ts"},["3905"] = {line = 1, file = "Time.ts"},["3906"] = {line = 1, file = "Time.ts"},["3907"] = {line = 5, file = "Time.ts"},["3908"] = {line = 3, file = "Time.ts"},["3909"] = {line = 7, file = "Time.ts"},["3910"] = {line = 5, file = "Time.ts"},["3911"] = {line = 10, file = "Time.ts"},["3912"] = {line = 12, file = "Time.ts"},["3913"] = {line = 13, file = "Time.ts"},["3914"] = {line = 10, file = "Time.ts"},["3915"] = {line = 16, file = "Time.ts"},["3916"] = {line = 18, file = "Time.ts"},["3917"] = {line = 16, file = "Time.ts"},["3925"] = {line = 3, file = "Timer.ts"},["3926"] = {line = 3, file = "Timer.ts"},["3927"] = {line = 3, file = "Timer.ts"},["3928"] = {line = 8, file = "Timer.ts"},["3929"] = {line = 10, file = "Timer.ts"},["3930"] = {line = 11, file = "Timer.ts"},["3931"] = {line = 12, file = "Timer.ts"},["3932"] = {line = 8, file = "Timer.ts"},["3933"] = {line = 15, file = "Timer.ts"},["3934"] = {line = 17, file = "Timer.ts"},["3935"] = {line = 19, file = "Timer.ts"},["3937"] = {line = 21, file = "Timer.ts"},["3938"] = {line = 15, file = "Timer.ts"},["3946"] = {line = 1, file = "Mathc.ts"},["3947"] = {line = 1, file = "Mathc.ts"},["3948"] = {line = 1, file = "Mathc.ts"},["3950"] = {line = 1, file = "Mathc.ts"},["3951"] = {line = 2, file = "Mathc.ts"},["3952"] = {line = 4, file = "Mathc.ts"},["3953"] = {line = 4, file = "Mathc.ts"},["3954"] = {line = 4, file = "Mathc.ts"},["3955"] = {line = 4, file = "Mathc.ts"},["3956"] = {line = 2, file = "Mathc.ts"},["3966"] = {line = 19, file = "ReactionControlSystem.ts"},["3967"] = {line = 19, file = "ReactionControlSystem.ts"},["3968"] = {line = 20, file = "ReactionControlSystem.ts"},["3969"] = {line = 20, file = "ReactionControlSystem.ts"},["3970"] = {line = 23, file = "ReactionControlSystem.ts"},["3971"] = {line = 23, file = "ReactionControlSystem.ts"},["3972"] = {line = 23, file = "ReactionControlSystem.ts"},["3973"] = {line = 24, file = "ReactionControlSystem.ts"},["3974"] = {line = 24, file = "ReactionControlSystem.ts"},["3975"] = {line = 25, file = "ReactionControlSystem.ts"},["3976"] = {line = 25, file = "ReactionControlSystem.ts"},["3977"] = {line = 26, file = "ReactionControlSystem.ts"},["3978"] = {line = 26, file = "ReactionControlSystem.ts"},["3979"] = {line = 27, file = "ReactionControlSystem.ts"},["3980"] = {line = 27, file = "ReactionControlSystem.ts"},["3981"] = {line = 32, file = "ReactionControlSystem.ts"},["3982"] = {line = 33, file = "ReactionControlSystem.ts"},["3983"] = {line = 33, file = "ReactionControlSystem.ts"},["3984"] = {line = 34, file = "ReactionControlSystem.ts"},["3985"] = {line = 34, file = "ReactionControlSystem.ts"},["3986"] = {line = 35, file = "ReactionControlSystem.ts"},["3987"] = {line = 35, file = "ReactionControlSystem.ts"},["3988"] = {line = 36, file = "ReactionControlSystem.ts"},["3989"] = {line = 36, file = "ReactionControlSystem.ts"},["3990"] = {line = 37, file = "ReactionControlSystem.ts"},["3991"] = {line = 37, file = "ReactionControlSystem.ts"},["3992"] = {line = 39, file = "ReactionControlSystem.ts"},["3993"] = {line = 39, file = "ReactionControlSystem.ts"},["3994"] = {line = 39, file = "ReactionControlSystem.ts"},["3995"] = {line = 39, file = "ReactionControlSystem.ts"},["3996"] = {line = 39, file = "ReactionControlSystem.ts"},["3997"] = {line = 39, file = "ReactionControlSystem.ts"},["3998"] = {line = 39, file = "ReactionControlSystem.ts"},["3999"] = {line = 45, file = "ReactionControlSystem.ts"},["4000"] = {line = 45, file = "ReactionControlSystem.ts"},["4001"] = {line = 45, file = "ReactionControlSystem.ts"},["4002"] = {line = 281, file = "ReactionControlSystem.ts"},["4003"] = {line = 46, file = "ReactionControlSystem.ts"},["4004"] = {line = 47, file = "ReactionControlSystem.ts"},["4005"] = {line = 48, file = "ReactionControlSystem.ts"},["4006"] = {line = 53, file = "ReactionControlSystem.ts"},["4007"] = {line = 54, file = "ReactionControlSystem.ts"},["4008"] = {line = 55, file = "ReactionControlSystem.ts"},["4009"] = {line = 56, file = "ReactionControlSystem.ts"},["4010"] = {line = 56, file = "ReactionControlSystem.ts"},["4011"] = {line = 56, file = "ReactionControlSystem.ts"},["4012"] = {line = 56, file = "ReactionControlSystem.ts"},["4013"] = {line = 56, file = "ReactionControlSystem.ts"},["4014"] = {line = 56, file = "ReactionControlSystem.ts"},["4015"] = {line = 56, file = "ReactionControlSystem.ts"},["4016"] = {line = 57, file = "ReactionControlSystem.ts"},["4017"] = {line = 57, file = "ReactionControlSystem.ts"},["4018"] = {line = 57, file = "ReactionControlSystem.ts"},["4019"] = {line = 57, file = "ReactionControlSystem.ts"},["4020"] = {line = 57, file = "ReactionControlSystem.ts"},["4021"] = {line = 57, file = "ReactionControlSystem.ts"},["4022"] = {line = 57, file = "ReactionControlSystem.ts"},["4023"] = {line = 282, file = "ReactionControlSystem.ts"},["4024"] = {line = 283, file = "ReactionControlSystem.ts"},["4025"] = {line = 284, file = "ReactionControlSystem.ts"},["4026"] = {line = 281, file = "ReactionControlSystem.ts"},["4027"] = {line = 63, file = "ReactionControlSystem.ts"},["4028"] = {line = 69, file = "ReactionControlSystem.ts"},["4029"] = {line = 70, file = "ReactionControlSystem.ts"},["4030"] = {line = 70, file = "ReactionControlSystem.ts"},["4031"] = {line = 70, file = "ReactionControlSystem.ts"},["4034"] = {line = 72, file = "ReactionControlSystem.ts"},["4037"] = {line = 70, file = "ReactionControlSystem.ts"},["4038"] = {line = 70, file = "ReactionControlSystem.ts"},["4039"] = {line = 63, file = "ReactionControlSystem.ts"},["4040"] = {line = 78, file = "ReactionControlSystem.ts"},["4041"] = {line = 80, file = "ReactionControlSystem.ts"},["4042"] = {line = 80, file = "ReactionControlSystem.ts"},["4044"] = {line = 81, file = "ReactionControlSystem.ts"},["4045"] = {line = 83, file = "ReactionControlSystem.ts"},["4047"] = {line = 85, file = "ReactionControlSystem.ts"},["4048"] = {line = 78, file = "ReactionControlSystem.ts"},["4049"] = {line = 89, file = "ReactionControlSystem.ts"},["4050"] = {line = 97, file = "ReactionControlSystem.ts"},["4051"] = {line = 99, file = "ReactionControlSystem.ts"},["4052"] = {line = 101, file = "ReactionControlSystem.ts"},["4053"] = {line = 102, file = "ReactionControlSystem.ts"},["4054"] = {line = 103, file = "ReactionControlSystem.ts"},["4055"] = {line = 103, file = "ReactionControlSystem.ts"},["4056"] = {line = 103, file = "ReactionControlSystem.ts"},["4057"] = {line = 105, file = "ReactionControlSystem.ts"},["4058"] = {line = 107, file = "ReactionControlSystem.ts"},["4060"] = {line = 103, file = "ReactionControlSystem.ts"},["4061"] = {line = 103, file = "ReactionControlSystem.ts"},["4062"] = {line = 110, file = "ReactionControlSystem.ts"},["4063"] = {line = 110, file = "ReactionControlSystem.ts"},["4064"] = {line = 110, file = "ReactionControlSystem.ts"},["4065"] = {line = 112, file = "ReactionControlSystem.ts"},["4066"] = {line = 114, file = "ReactionControlSystem.ts"},["4068"] = {line = 110, file = "ReactionControlSystem.ts"},["4069"] = {line = 110, file = "ReactionControlSystem.ts"},["4070"] = {line = 117, file = "ReactionControlSystem.ts"},["4071"] = {line = 120, file = "ReactionControlSystem.ts"},["4073"] = {line = 122, file = "ReactionControlSystem.ts"},["4074"] = {line = 125, file = "ReactionControlSystem.ts"},["4075"] = {line = 126, file = "ReactionControlSystem.ts"},["4077"] = {line = 128, file = "ReactionControlSystem.ts"},["4078"] = {line = 89, file = "ReactionControlSystem.ts"},["4079"] = {line = 131, file = "ReactionControlSystem.ts"},["4080"] = {line = 133, file = "ReactionControlSystem.ts"},["4081"] = {line = 134, file = "ReactionControlSystem.ts"},["4082"] = {line = 136, file = "ReactionControlSystem.ts"},["4083"] = {line = 137, file = "ReactionControlSystem.ts"},["4085"] = {line = 131, file = "ReactionControlSystem.ts"},["4086"] = {line = 149, file = "ReactionControlSystem.ts"},["4087"] = {line = 150, file = "ReactionControlSystem.ts"},["4088"] = {line = 151, file = "ReactionControlSystem.ts"},["4089"] = {line = 152, file = "ReactionControlSystem.ts"},["4091"] = {line = 154, file = "ReactionControlSystem.ts"},["4092"] = {line = 155, file = "ReactionControlSystem.ts"},["4093"] = {line = 155, file = "ReactionControlSystem.ts"},["4094"] = {line = 155, file = "ReactionControlSystem.ts"},["4095"] = {line = 157, file = "ReactionControlSystem.ts"},["4096"] = {line = 158, file = "ReactionControlSystem.ts"},["4097"] = {line = 160, file = "ReactionControlSystem.ts"},["4099"] = {line = 164, file = "ReactionControlSystem.ts"},["4101"] = {line = 155, file = "ReactionControlSystem.ts"},["4102"] = {line = 155, file = "ReactionControlSystem.ts"},["4103"] = {line = 167, file = "ReactionControlSystem.ts"},["4104"] = {line = 169, file = "ReactionControlSystem.ts"},["4106"] = {line = 171, file = "ReactionControlSystem.ts"},["4107"] = {line = 149, file = "ReactionControlSystem.ts"},["4108"] = {line = 174, file = "ReactionControlSystem.ts"},["4109"] = {line = 176, file = "ReactionControlSystem.ts"},["4110"] = {line = 177, file = "ReactionControlSystem.ts"},["4111"] = {line = 179, file = "ReactionControlSystem.ts"},["4112"] = {line = 174, file = "ReactionControlSystem.ts"},["4113"] = {line = 182, file = "ReactionControlSystem.ts"},["4114"] = {line = 184, file = "ReactionControlSystem.ts"},["4115"] = {line = 185, file = "ReactionControlSystem.ts"},["4116"] = {line = 182, file = "ReactionControlSystem.ts"},["4117"] = {line = 188, file = "ReactionControlSystem.ts"},["4118"] = {line = 195, file = "ReactionControlSystem.ts"},["4119"] = {line = 196, file = "ReactionControlSystem.ts"},["4120"] = {line = 198, file = "ReactionControlSystem.ts"},["4123"] = {line = 202, file = "ReactionControlSystem.ts"},["4124"] = {line = 203, file = "ReactionControlSystem.ts"},["4125"] = {line = 204, file = "ReactionControlSystem.ts"},["4126"] = {line = 205, file = "ReactionControlSystem.ts"},["4127"] = {line = 207, file = "ReactionControlSystem.ts"},["4128"] = {line = 210, file = "ReactionControlSystem.ts"},["4129"] = {line = 212, file = "ReactionControlSystem.ts"},["4130"] = {line = 214, file = "ReactionControlSystem.ts"},["4131"] = {line = 216, file = "ReactionControlSystem.ts"},["4133"] = {line = 218, file = "ReactionControlSystem.ts"},["4136"] = {line = 223, file = "ReactionControlSystem.ts"},["4139"] = {line = 221, file = "ReactionControlSystem.ts"},["4145"] = {line = 188, file = "ReactionControlSystem.ts"},["4146"] = {line = 229, file = "ReactionControlSystem.ts"},["4147"] = {line = 231, file = "ReactionControlSystem.ts"},["4148"] = {line = 232, file = "ReactionControlSystem.ts"},["4149"] = {line = 234, file = "ReactionControlSystem.ts"},["4150"] = {line = 236, file = "ReactionControlSystem.ts"},["4151"] = {line = 236, file = "ReactionControlSystem.ts"},["4152"] = {line = 236, file = "ReactionControlSystem.ts"},["4153"] = {line = 236, file = "ReactionControlSystem.ts"},["4154"] = {line = 236, file = "ReactionControlSystem.ts"},["4155"] = {line = 236, file = "ReactionControlSystem.ts"},["4156"] = {line = 236, file = "ReactionControlSystem.ts"},["4158"] = {line = 239, file = "ReactionControlSystem.ts"},["4159"] = {line = 240, file = "ReactionControlSystem.ts"},["4160"] = {line = 241, file = "ReactionControlSystem.ts"},["4161"] = {line = 243, file = "ReactionControlSystem.ts"},["4162"] = {line = 244, file = "ReactionControlSystem.ts"},["4163"] = {line = 246, file = "ReactionControlSystem.ts"},["4164"] = {line = 247, file = "ReactionControlSystem.ts"},["4165"] = {line = 248, file = "ReactionControlSystem.ts"},["4166"] = {line = 229, file = "ReactionControlSystem.ts"},["4167"] = {line = 252, file = "ReactionControlSystem.ts"},["4168"] = {line = 253, file = "ReactionControlSystem.ts"},["4170"] = {line = 254, file = "ReactionControlSystem.ts"},["4174"] = {line = 256, file = "ReactionControlSystem.ts"},["4177"] = {line = 260, file = "ReactionControlSystem.ts"},["4180"] = {line = 265, file = "ReactionControlSystem.ts"},["4181"] = {line = 267, file = "ReactionControlSystem.ts"},["4182"] = {line = 268, file = "ReactionControlSystem.ts"},["4183"] = {line = 269, file = "ReactionControlSystem.ts"},["4184"] = {line = 270, file = "ReactionControlSystem.ts"},["4185"] = {line = 271, file = "ReactionControlSystem.ts"},["4186"] = {line = 273, file = "ReactionControlSystem.ts"},["4187"] = {line = 275, file = "ReactionControlSystem.ts"},["4188"] = {line = 275, file = "ReactionControlSystem.ts"},["4189"] = {line = 275, file = "ReactionControlSystem.ts"},["4190"] = {line = 277, file = "ReactionControlSystem.ts"},["4191"] = {line = 275, file = "ReactionControlSystem.ts"},["4192"] = {line = 275, file = "ReactionControlSystem.ts"},["4193"] = {line = 252, file = "ReactionControlSystem.ts"},["4208"] = {line = 6, file = "FlightManagementSystem.ts"},["4209"] = {line = 6, file = "FlightManagementSystem.ts"},["4210"] = {line = 7, file = "FlightManagementSystem.ts"},["4211"] = {line = 7, file = "FlightManagementSystem.ts"},["4212"] = {line = 9, file = "FlightManagementSystem.ts"},["4213"] = {line = 9, file = "FlightManagementSystem.ts"},["4214"] = {line = 10, file = "FlightManagementSystem.ts"},["4215"] = {line = 10, file = "FlightManagementSystem.ts"},["4216"] = {line = 12, file = "FlightManagementSystem.ts"},["4217"] = {line = 12, file = "FlightManagementSystem.ts"},["4218"] = {line = 13, file = "FlightManagementSystem.ts"},["4219"] = {line = 13, file = "FlightManagementSystem.ts"},["4220"] = {line = 14, file = "FlightManagementSystem.ts"},["4221"] = {line = 14, file = "FlightManagementSystem.ts"},["4222"] = {line = 16, file = "FlightManagementSystem.ts"},["4223"] = {line = 16, file = "FlightManagementSystem.ts"},["4224"] = {line = 16, file = "FlightManagementSystem.ts"},["4225"] = {line = 16, file = "FlightManagementSystem.ts"},["4226"] = {line = 16, file = "FlightManagementSystem.ts"},["4227"] = {line = 16, file = "FlightManagementSystem.ts"},["4228"] = {line = 16, file = "FlightManagementSystem.ts"},["4229"] = {line = 16, file = "FlightManagementSystem.ts"},["4230"] = {line = 16, file = "FlightManagementSystem.ts"},["4231"] = {line = 16, file = "FlightManagementSystem.ts"},["4232"] = {line = 16, file = "FlightManagementSystem.ts"},["4233"] = {line = 25, file = "FlightManagementSystem.ts"},["4234"] = {line = 25, file = "FlightManagementSystem.ts"},["4235"] = {line = 25, file = "FlightManagementSystem.ts"},["4236"] = {line = 56, file = "FlightManagementSystem.ts"},["4237"] = {line = 27, file = "FlightManagementSystem.ts"},["4238"] = {line = 57, file = "FlightManagementSystem.ts"},["4239"] = {line = 58, file = "FlightManagementSystem.ts"},["4240"] = {line = 59, file = "FlightManagementSystem.ts"},["4241"] = {line = 60, file = "FlightManagementSystem.ts"},["4242"] = {line = 56, file = "FlightManagementSystem.ts"},["4243"] = {line = 37, file = "FlightManagementSystem.ts"},["4244"] = {line = 40, file = "FlightManagementSystem.ts"},["4245"] = {line = 42, file = "FlightManagementSystem.ts"},["4246"] = {line = 43, file = "FlightManagementSystem.ts"},["4248"] = {line = 46, file = "FlightManagementSystem.ts"},["4249"] = {line = 48, file = "FlightManagementSystem.ts"},["4250"] = {line = 50, file = "FlightManagementSystem.ts"},["4251"] = {line = 51, file = "FlightManagementSystem.ts"},["4253"] = {line = 53, file = "FlightManagementSystem.ts"},["4254"] = {line = 37, file = "FlightManagementSystem.ts"},["4255"] = {line = 63, file = "FlightManagementSystem.ts"},["4256"] = {line = 66, file = "FlightManagementSystem.ts"},["4257"] = {line = 63, file = "FlightManagementSystem.ts"},["4258"] = {line = 68, file = "FlightManagementSystem.ts"},["4259"] = {line = 70, file = "FlightManagementSystem.ts"},["4260"] = {line = 72, file = "FlightManagementSystem.ts"},["4261"] = {line = 73, file = "FlightManagementSystem.ts"},["4262"] = {line = 74, file = "FlightManagementSystem.ts"},["4263"] = {line = 74, file = "FlightManagementSystem.ts"},["4264"] = {line = 74, file = "FlightManagementSystem.ts"},["4265"] = {line = 74, file = "FlightManagementSystem.ts"},["4266"] = {line = 75, file = "FlightManagementSystem.ts"},["4267"] = {line = 72, file = "FlightManagementSystem.ts"},["4268"] = {line = 77, file = "FlightManagementSystem.ts"},["4269"] = {line = 78, file = "FlightManagementSystem.ts"},["4271"] = {line = 68, file = "FlightManagementSystem.ts"},["4272"] = {line = 82, file = "FlightManagementSystem.ts"},["4273"] = {line = 84, file = "FlightManagementSystem.ts"},["4274"] = {line = 85, file = "FlightManagementSystem.ts"},["4276"] = {line = 87, file = "FlightManagementSystem.ts"},["4280"] = {line = 89, file = "FlightManagementSystem.ts"},["4281"] = {line = 82, file = "FlightManagementSystem.ts"},["4289"] = {line = 12, file = "FailureManagementSystem.ts"},["4290"] = {line = 12, file = "FailureManagementSystem.ts"},["4291"] = {line = 12, file = "FailureManagementSystem.ts"},["4292"] = {line = 17, file = "FailureManagementSystem.ts"},["4293"] = {line = 19, file = "FailureManagementSystem.ts"},["4294"] = {line = 20, file = "FailureManagementSystem.ts"},["4295"] = {line = 17, file = "FailureManagementSystem.ts"},["4303"] = {line = 5, file = "drone.ts"},["4304"] = {line = 5, file = "drone.ts"},["4305"] = {line = 6, file = "drone.ts"},["4306"] = {line = 6, file = "drone.ts"},["4307"] = {line = 7, file = "drone.ts"},["4308"] = {line = 7, file = "drone.ts"},["4309"] = {line = 9, file = "drone.ts"},["4310"] = {line = 10, file = "drone.ts"},["4311"] = {line = 11, file = "drone.ts"},["4312"] = {line = 12, file = "drone.ts"},["4313"] = {line = 13, file = "drone.ts"},["4314"] = {line = 14, file = "drone.ts"},["4315"] = {line = 15, file = "drone.ts"},["4316"] = {line = 10, file = "drone.ts"},["4317"] = {line = 17, file = "drone.ts"},["4318"] = {line = 18, file = "drone.ts"},["4319"] = {line = 19, file = "drone.ts"},["4320"] = {line = 20, file = "drone.ts"},["4321"] = {line = 21, file = "drone.ts"},["4322"] = {line = 22, file = "drone.ts"},["4323"] = {line = 22, file = "drone.ts"},["4324"] = {line = 22, file = "drone.ts"},["4325"] = {line = 22, file = "drone.ts"},["4326"] = {line = 22, file = "drone.ts"},["4327"] = {line = 22, file = "drone.ts"},["4328"] = {line = 22, file = "drone.ts"},["4329"] = {line = 23, file = "drone.ts"},["4330"] = {line = 23, file = "drone.ts"},["4331"] = {line = 23, file = "drone.ts"},["4332"] = {line = 23, file = "drone.ts"},["4333"] = {line = 23, file = "drone.ts"},["4334"] = {line = 23, file = "drone.ts"},["4335"] = {line = 23, file = "drone.ts"},["4336"] = {line = 24, file = "drone.ts"},["4337"] = {line = 24, file = "drone.ts"},["4338"] = {line = 24, file = "drone.ts"},["4339"] = {line = 24, file = "drone.ts"},["4340"] = {line = 24, file = "drone.ts"},["4341"] = {line = 24, file = "drone.ts"},["4342"] = {line = 24, file = "drone.ts"},["4343"] = {line = 25, file = "drone.ts"},["4344"] = {line = 25, file = "drone.ts"},["4345"] = {line = 25, file = "drone.ts"},["4346"] = {line = 25, file = "drone.ts"},["4347"] = {line = 25, file = "drone.ts"},["4348"] = {line = 25, file = "drone.ts"},["4349"] = {line = 25, file = "drone.ts"},["4350"] = {line = 27, file = "drone.ts"},["4351"] = {line = 27, file = "drone.ts"},["4352"] = {line = 27, file = "drone.ts"},["4353"] = {line = 27, file = "drone.ts"},["4354"] = {line = 27, file = "drone.ts"},["4355"] = {line = 27, file = "drone.ts"},["4356"] = {line = 27, file = "drone.ts"},["4357"] = {line = 28, file = "drone.ts"},["4358"] = {line = 28, file = "drone.ts"},["4359"] = {line = 28, file = "drone.ts"},["4360"] = {line = 28, file = "drone.ts"},["4361"] = {line = 28, file = "drone.ts"},["4362"] = {line = 28, file = "drone.ts"},["4363"] = {line = 28, file = "drone.ts"},["4364"] = {line = 29, file = "drone.ts"},["4365"] = {line = 29, file = "drone.ts"},["4366"] = {line = 29, file = "drone.ts"},["4367"] = {line = 29, file = "drone.ts"},["4368"] = {line = 29, file = "drone.ts"},["4369"] = {line = 29, file = "drone.ts"},["4370"] = {line = 29, file = "drone.ts"},["4371"] = {line = 30, file = "drone.ts"},["4372"] = {line = 30, file = "drone.ts"},["4373"] = {line = 30, file = "drone.ts"},["4374"] = {line = 30, file = "drone.ts"},["4375"] = {line = 30, file = "drone.ts"},["4376"] = {line = 30, file = "drone.ts"},["4377"] = {line = 30, file = "drone.ts"},["4378"] = {line = 32, file = "drone.ts"},["4379"] = {line = 32, file = "drone.ts"},["4380"] = {line = 32, file = "drone.ts"},["4381"] = {line = 32, file = "drone.ts"},["4382"] = {line = 32, file = "drone.ts"},["4383"] = {line = 32, file = "drone.ts"},["4384"] = {line = 32, file = "drone.ts"},["4385"] = {line = 33, file = "drone.ts"},["4386"] = {line = 33, file = "drone.ts"},["4387"] = {line = 33, file = "drone.ts"},["4388"] = {line = 33, file = "drone.ts"},["4389"] = {line = 33, file = "drone.ts"},["4390"] = {line = 33, file = "drone.ts"},["4391"] = {line = 33, file = "drone.ts"},["4392"] = {line = 34, file = "drone.ts"},["4393"] = {line = 34, file = "drone.ts"},["4394"] = {line = 34, file = "drone.ts"},["4395"] = {line = 34, file = "drone.ts"},["4396"] = {line = 34, file = "drone.ts"},["4397"] = {line = 34, file = "drone.ts"},["4398"] = {line = 34, file = "drone.ts"},["4399"] = {line = 35, file = "drone.ts"},["4400"] = {line = 35, file = "drone.ts"},["4401"] = {line = 35, file = "drone.ts"},["4402"] = {line = 35, file = "drone.ts"},["4403"] = {line = 35, file = "drone.ts"},["4404"] = {line = 35, file = "drone.ts"},["4405"] = {line = 35, file = "drone.ts"},["4406"] = {line = 37, file = "drone.ts"},["4407"] = {line = 37, file = "drone.ts"},["4408"] = {line = 37, file = "drone.ts"},["4409"] = {line = 37, file = "drone.ts"},["4410"] = {line = 37, file = "drone.ts"},["4411"] = {line = 37, file = "drone.ts"},["4412"] = {line = 37, file = "drone.ts"},["4413"] = {line = 38, file = "drone.ts"},["4414"] = {line = 38, file = "drone.ts"},["4415"] = {line = 38, file = "drone.ts"},["4416"] = {line = 38, file = "drone.ts"},["4417"] = {line = 38, file = "drone.ts"},["4418"] = {line = 38, file = "drone.ts"},["4419"] = {line = 38, file = "drone.ts"},["4420"] = {line = 39, file = "drone.ts"},["4421"] = {line = 39, file = "drone.ts"},["4422"] = {line = 39, file = "drone.ts"},["4423"] = {line = 39, file = "drone.ts"},["4424"] = {line = 39, file = "drone.ts"},["4425"] = {line = 39, file = "drone.ts"},["4426"] = {line = 39, file = "drone.ts"},["4427"] = {line = 40, file = "drone.ts"},["4428"] = {line = 40, file = "drone.ts"},["4429"] = {line = 40, file = "drone.ts"},["4430"] = {line = 40, file = "drone.ts"},["4431"] = {line = 40, file = "drone.ts"},["4432"] = {line = 40, file = "drone.ts"},["4433"] = {line = 40, file = "drone.ts"},["4434"] = {line = 42, file = "drone.ts"},["4435"] = {line = 42, file = "drone.ts"},["4436"] = {line = 42, file = "drone.ts"},["4437"] = {line = 42, file = "drone.ts"},["4438"] = {line = 42, file = "drone.ts"},["4439"] = {line = 42, file = "drone.ts"},["4440"] = {line = 42, file = "drone.ts"},["4441"] = {line = 43, file = "drone.ts"},["4442"] = {line = 43, file = "drone.ts"},["4443"] = {line = 43, file = "drone.ts"},["4444"] = {line = 43, file = "drone.ts"},["4445"] = {line = 43, file = "drone.ts"},["4446"] = {line = 43, file = "drone.ts"},["4447"] = {line = 43, file = "drone.ts"},["4448"] = {line = 44, file = "drone.ts"},["4449"] = {line = 44, file = "drone.ts"},["4450"] = {line = 44, file = "drone.ts"},["4451"] = {line = 44, file = "drone.ts"},["4452"] = {line = 44, file = "drone.ts"},["4453"] = {line = 44, file = "drone.ts"},["4454"] = {line = 44, file = "drone.ts"},["4455"] = {line = 45, file = "drone.ts"},["4456"] = {line = 45, file = "drone.ts"},["4457"] = {line = 45, file = "drone.ts"},["4458"] = {line = 45, file = "drone.ts"},["4459"] = {line = 45, file = "drone.ts"},["4460"] = {line = 45, file = "drone.ts"},["4461"] = {line = 45, file = "drone.ts"},["4462"] = {line = 47, file = "drone.ts"},["4463"] = {line = 47, file = "drone.ts"},["4464"] = {line = 47, file = "drone.ts"},["4465"] = {line = 47, file = "drone.ts"},["4466"] = {line = 47, file = "drone.ts"},["4467"] = {line = 47, file = "drone.ts"},["4468"] = {line = 47, file = "drone.ts"},["4469"] = {line = 48, file = "drone.ts"},["4470"] = {line = 48, file = "drone.ts"},["4471"] = {line = 48, file = "drone.ts"},["4472"] = {line = 48, file = "drone.ts"},["4473"] = {line = 48, file = "drone.ts"},["4474"] = {line = 48, file = "drone.ts"},["4475"] = {line = 48, file = "drone.ts"},["4476"] = {line = 49, file = "drone.ts"},["4477"] = {line = 49, file = "drone.ts"},["4478"] = {line = 49, file = "drone.ts"},["4479"] = {line = 49, file = "drone.ts"},["4480"] = {line = 49, file = "drone.ts"},["4481"] = {line = 49, file = "drone.ts"},["4482"] = {line = 49, file = "drone.ts"},["4483"] = {line = 50, file = "drone.ts"},["4484"] = {line = 50, file = "drone.ts"},["4485"] = {line = 50, file = "drone.ts"},["4486"] = {line = 50, file = "drone.ts"},["4487"] = {line = 50, file = "drone.ts"},["4488"] = {line = 50, file = "drone.ts"},["4489"] = {line = 50, file = "drone.ts"},["4490"] = {line = 21, file = "drone.ts"},["4491"] = {line = 9, file = "drone.ts"},["4492"] = {line = 54, file = "drone.ts"},["4493"] = {line = 56, file = "drone.ts"}});
+__TS__SourceMapTraceBack(debug.getinfo(1).short_src, {["2836"] = {line = 1, file = "lstd.ts"},["2837"] = {line = 1, file = "lstd.ts"},["2838"] = {line = 1, file = "lstd.ts"},["2839"] = {line = 3, file = "lstd.ts"},["2840"] = {line = 3, file = "lstd.ts"},["2841"] = {line = 3, file = "lstd.ts"},["2843"] = {line = 3, file = "lstd.ts"},["2844"] = {line = 4, file = "lstd.ts"},["2845"] = {line = 5, file = "lstd.ts"},["2846"] = {line = 4, file = "lstd.ts"},["2847"] = {line = 7, file = "lstd.ts"},["2848"] = {line = 8, file = "lstd.ts"},["2849"] = {line = 7, file = "lstd.ts"},["2882"] = {line = 5, file = "Failure.ts"},["2883"] = {line = 6, file = "Failure.ts"},["2884"] = {line = 6, file = "Failure.ts"},["2885"] = {line = 7, file = "Failure.ts"},["2886"] = {line = 7, file = "Failure.ts"},["2887"] = {line = 8, file = "Failure.ts"},["2888"] = {line = 8, file = "Failure.ts"},["2889"] = {line = 9, file = "Failure.ts"},["2890"] = {line = 9, file = "Failure.ts"},["2891"] = {line = 10, file = "Failure.ts"},["2892"] = {line = 10, file = "Failure.ts"},["2893"] = {line = 11, file = "Failure.ts"},["2894"] = {line = 11, file = "Failure.ts"},["2895"] = {line = 12, file = "Failure.ts"},["2896"] = {line = 12, file = "Failure.ts"},["2897"] = {line = 14, file = "Failure.ts"},["2898"] = {line = 14, file = "Failure.ts"},["2899"] = {line = 14, file = "Failure.ts"},["2900"] = {line = 14, file = "Failure.ts"},["2901"] = {line = 17, file = "Failure.ts"},["2902"] = {line = 14, file = "Failure.ts"},["2903"] = {line = 19, file = "Failure.ts"},["2904"] = {line = 19, file = "Failure.ts"},["2905"] = {line = 19, file = "Failure.ts"},["2906"] = {line = 15, file = "Failure.ts"},["2907"] = {line = 20, file = "Failure.ts"},["2908"] = {line = 17, file = "Failure.ts"},["2916"] = {line = 1, file = "Mathc.ts"},["2917"] = {line = 1, file = "Mathc.ts"},["2918"] = {line = 1, file = "Mathc.ts"},["2920"] = {line = 1, file = "Mathc.ts"},["2921"] = {line = 2, file = "Mathc.ts"},["2922"] = {line = 6, file = "Mathc.ts"},["2923"] = {line = 8, file = "Mathc.ts"},["2925"] = {line = 10, file = "Mathc.ts"},["2926"] = {line = 12, file = "Mathc.ts"},["2928"] = {line = 14, file = "Mathc.ts"},["2929"] = {line = 2, file = "Mathc.ts"},["2930"] = {line = 16, file = "Mathc.ts"},["2931"] = {line = 18, file = "Mathc.ts"},["2932"] = {line = 20, file = "Mathc.ts"},["2934"] = {line = 24, file = "Mathc.ts"},["2936"] = {line = 16, file = "Mathc.ts"},["2952"] = {line = 2, file = "Vector3.ts"},["2953"] = {line = 2, file = "Vector3.ts"},["2954"] = {line = 3, file = "Vector3.ts"},["2955"] = {line = 3, file = "Vector3.ts"},["2956"] = {line = 3, file = "Vector3.ts"},["2957"] = {line = 7, file = "Vector3.ts"},["2958"] = {line = 4, file = "Vector3.ts"},["2959"] = {line = 5, file = "Vector3.ts"},["2960"] = {line = 6, file = "Vector3.ts"},["2961"] = {line = 8, file = "Vector3.ts"},["2962"] = {line = 9, file = "Vector3.ts"},["2963"] = {line = 10, file = "Vector3.ts"},["2964"] = {line = 7, file = "Vector3.ts"},["2965"] = {line = 13, file = "Vector3.ts"},["2966"] = {line = 14, file = "Vector3.ts"},["2967"] = {line = 15, file = "Vector3.ts"},["2968"] = {line = 13, file = "Vector3.ts"},["2969"] = {line = 24, file = "Vector3.ts"},["2970"] = {line = 26, file = "Vector3.ts"},["2971"] = {line = 27, file = "Vector3.ts"},["2972"] = {line = 28, file = "Vector3.ts"},["2973"] = {line = 29, file = "Vector3.ts"},["2974"] = {line = 24, file = "Vector3.ts"},["2975"] = {line = 32, file = "Vector3.ts"},["2976"] = {line = 34, file = "Vector3.ts"},["2977"] = {line = 35, file = "Vector3.ts"},["2978"] = {line = 36, file = "Vector3.ts"},["2979"] = {line = 37, file = "Vector3.ts"},["2980"] = {line = 32, file = "Vector3.ts"},["2981"] = {line = 40, file = "Vector3.ts"},["2982"] = {line = 41, file = "Vector3.ts"},["2983"] = {line = 42, file = "Vector3.ts"},["2984"] = {line = 43, file = "Vector3.ts"},["2985"] = {line = 44, file = "Vector3.ts"},["2986"] = {line = 45, file = "Vector3.ts"},["2987"] = {line = 40, file = "Vector3.ts"},["2988"] = {line = 47, file = "Vector3.ts"},["2989"] = {line = 48, file = "Vector3.ts"},["2990"] = {line = 53, file = "Vector3.ts"},["2991"] = {line = 47, file = "Vector3.ts"},["2992"] = {line = 56, file = "Vector3.ts"},["2993"] = {line = 58, file = "Vector3.ts"},["2994"] = {line = 60, file = "Vector3.ts"},["2996"] = {line = 62, file = "Vector3.ts"},["2997"] = {line = 56, file = "Vector3.ts"},["2998"] = {line = 65, file = "Vector3.ts"},["2999"] = {line = 66, file = "Vector3.ts"},["3000"] = {line = 67, file = "Vector3.ts"},["3001"] = {line = 65, file = "Vector3.ts"},["3002"] = {line = 69, file = "Vector3.ts"},["3003"] = {line = 70, file = "Vector3.ts"},["3004"] = {line = 71, file = "Vector3.ts"},["3006"] = {line = 72, file = "Vector3.ts"},["3010"] = {line = 74, file = "Vector3.ts"},["3011"] = {line = 79, file = "Vector3.ts"},["3012"] = {line = 69, file = "Vector3.ts"},["3013"] = {line = 82, file = "Vector3.ts"},["3014"] = {line = 83, file = "Vector3.ts"},["3015"] = {line = 88, file = "Vector3.ts"},["3016"] = {line = 82, file = "Vector3.ts"},["3017"] = {line = 90, file = "Vector3.ts"},["3018"] = {line = 91, file = "Vector3.ts"},["3019"] = {line = 96, file = "Vector3.ts"},["3020"] = {line = 90, file = "Vector3.ts"},["3021"] = {line = 98, file = "Vector3.ts"},["3022"] = {line = 99, file = "Vector3.ts"},["3023"] = {line = 104, file = "Vector3.ts"},["3024"] = {line = 98, file = "Vector3.ts"},["3025"] = {line = 106, file = "Vector3.ts"},["3026"] = {line = 107, file = "Vector3.ts"},["3027"] = {line = 112, file = "Vector3.ts"},["3028"] = {line = 106, file = "Vector3.ts"},["3029"] = {line = 114, file = "Vector3.ts"},["3030"] = {line = 116, file = "Vector3.ts"},["3032"] = {line = 118, file = "Vector3.ts"},["3036"] = {line = 120, file = "Vector3.ts"},["3037"] = {line = 114, file = "Vector3.ts"},["3038"] = {line = 122, file = "Vector3.ts"},["3039"] = {line = 124, file = "Vector3.ts"},["3040"] = {line = 125, file = "Vector3.ts"},["3041"] = {line = 122, file = "Vector3.ts"},["3050"] = {line = 2, file = "pidcontroller.ts"},["3051"] = {line = 2, file = "pidcontroller.ts"},["3052"] = {line = 9, file = "pidcontroller.ts"},["3053"] = {line = 9, file = "pidcontroller.ts"},["3054"] = {line = 9, file = "pidcontroller.ts"},["3055"] = {line = 22, file = "pidcontroller.ts"},["3056"] = {line = 16, file = "pidcontroller.ts"},["3057"] = {line = 17, file = "pidcontroller.ts"},["3058"] = {line = 18, file = "pidcontroller.ts"},["3059"] = {line = 19, file = "pidcontroller.ts"},["3060"] = {line = 20, file = "pidcontroller.ts"},["3061"] = {line = 23, file = "pidcontroller.ts"},["3062"] = {line = 24, file = "pidcontroller.ts"},["3063"] = {line = 25, file = "pidcontroller.ts"},["3064"] = {line = 26, file = "pidcontroller.ts"},["3065"] = {line = 27, file = "pidcontroller.ts"},["3066"] = {line = 22, file = "pidcontroller.ts"},["3067"] = {line = 30, file = "pidcontroller.ts"},["3068"] = {line = 31, file = "pidcontroller.ts"},["3069"] = {line = 32, file = "pidcontroller.ts"},["3070"] = {line = 33, file = "pidcontroller.ts"},["3071"] = {line = 39, file = "pidcontroller.ts"},["3072"] = {line = 41, file = "pidcontroller.ts"},["3073"] = {line = 42, file = "pidcontroller.ts"},["3074"] = {line = 43, file = "pidcontroller.ts"},["3075"] = {line = 45, file = "pidcontroller.ts"},["3076"] = {line = 46, file = "pidcontroller.ts"},["3077"] = {line = 47, file = "pidcontroller.ts"},["3078"] = {line = 48, file = "pidcontroller.ts"},["3079"] = {line = 49, file = "pidcontroller.ts"},["3081"] = {line = 51, file = "pidcontroller.ts"},["3083"] = {line = 54, file = "pidcontroller.ts"},["3084"] = {line = 55, file = "pidcontroller.ts"},["3086"] = {line = 57, file = "pidcontroller.ts"},["3088"] = {line = 60, file = "pidcontroller.ts"},["3089"] = {line = 61, file = "pidcontroller.ts"},["3091"] = {line = 63, file = "pidcontroller.ts"},["3093"] = {line = 66, file = "pidcontroller.ts"},["3094"] = {line = 67, file = "pidcontroller.ts"},["3096"] = {line = 69, file = "pidcontroller.ts"},["3098"] = {line = 72, file = "pidcontroller.ts"},["3099"] = {line = 73, file = "pidcontroller.ts"},["3101"] = {line = 75, file = "pidcontroller.ts"},["3103"] = {line = 78, file = "pidcontroller.ts"},["3104"] = {line = 79, file = "pidcontroller.ts"},["3106"] = {line = 81, file = "pidcontroller.ts"},["3108"] = {line = 84, file = "pidcontroller.ts"},["3109"] = {line = 86, file = "pidcontroller.ts"},["3110"] = {line = 88, file = "pidcontroller.ts"},["3111"] = {line = 91, file = "pidcontroller.ts"},["3112"] = {line = 92, file = "pidcontroller.ts"},["3113"] = {line = 30, file = "pidcontroller.ts"},["3122"] = {line = 2, file = "Quaternion.ts"},["3123"] = {line = 2, file = "Quaternion.ts"},["3124"] = {line = 9, file = "Quaternion.ts"},["3125"] = {line = 9, file = "Quaternion.ts"},["3126"] = {line = 9, file = "Quaternion.ts"},["3127"] = {line = 18, file = "Quaternion.ts"},["3128"] = {line = 10, file = "Quaternion.ts"},["3129"] = {line = 11, file = "Quaternion.ts"},["3130"] = {line = 12, file = "Quaternion.ts"},["3131"] = {line = 13, file = "Quaternion.ts"},["3132"] = {line = 23, file = "Quaternion.ts"},["3133"] = {line = 24, file = "Quaternion.ts"},["3134"] = {line = 25, file = "Quaternion.ts"},["3135"] = {line = 26, file = "Quaternion.ts"},["3136"] = {line = 17, file = "Quaternion.ts"},["3137"] = {line = 29, file = "Quaternion.ts"},["3138"] = {line = 30, file = "Quaternion.ts"},["3139"] = {line = 32, file = "Quaternion.ts"},["3140"] = {line = 33, file = "Quaternion.ts"},["3141"] = {line = 33, file = "Quaternion.ts"},["3142"] = {line = 33, file = "Quaternion.ts"},["3143"] = {line = 33, file = "Quaternion.ts"},["3144"] = {line = 33, file = "Quaternion.ts"},["3145"] = {line = 33, file = "Quaternion.ts"},["3146"] = {line = 33, file = "Quaternion.ts"},["3147"] = {line = 34, file = "Quaternion.ts"},["3149"] = {line = 37, file = "Quaternion.ts"},["3150"] = {line = 38, file = "Quaternion.ts"},["3151"] = {line = 40, file = "Quaternion.ts"},["3152"] = {line = 41, file = "Quaternion.ts"},["3153"] = {line = 43, file = "Quaternion.ts"},["3154"] = {line = 43, file = "Quaternion.ts"},["3155"] = {line = 44, file = "Quaternion.ts"},["3156"] = {line = 45, file = "Quaternion.ts"},["3157"] = {line = 46, file = "Quaternion.ts"},["3158"] = {line = 47, file = "Quaternion.ts"},["3159"] = {line = 43, file = "Quaternion.ts"},["3160"] = {line = 49, file = "Quaternion.ts"},["3161"] = {line = 29, file = "Quaternion.ts"},["3162"] = {line = 52, file = "Quaternion.ts"},["3163"] = {line = 53, file = "Quaternion.ts"},["3164"] = {line = 54, file = "Quaternion.ts"},["3165"] = {line = 55, file = "Quaternion.ts"},["3166"] = {line = 56, file = "Quaternion.ts"},["3167"] = {line = 57, file = "Quaternion.ts"},["3168"] = {line = 58, file = "Quaternion.ts"},["3169"] = {line = 56, file = "Quaternion.ts"},["3171"] = {line = 62, file = "Quaternion.ts"},["3172"] = {line = 67, file = "Quaternion.ts"},["3173"] = {line = 71, file = "Quaternion.ts"},["3174"] = {line = 52, file = "Quaternion.ts"},["3175"] = {line = 74, file = "Quaternion.ts"},["3176"] = {line = 75, file = "Quaternion.ts"},["3177"] = {line = 77, file = "Quaternion.ts"},["3178"] = {line = 77, file = "Quaternion.ts"},["3179"] = {line = 78, file = "Quaternion.ts"},["3180"] = {line = 79, file = "Quaternion.ts"},["3181"] = {line = 80, file = "Quaternion.ts"},["3182"] = {line = 81, file = "Quaternion.ts"},["3183"] = {line = 77, file = "Quaternion.ts"},["3184"] = {line = 83, file = "Quaternion.ts"},["3185"] = {line = 74, file = "Quaternion.ts"},["3186"] = {line = 86, file = "Quaternion.ts"},["3187"] = {line = 87, file = "Quaternion.ts"},["3188"] = {line = 88, file = "Quaternion.ts"},["3189"] = {line = 89, file = "Quaternion.ts"},["3190"] = {line = 91, file = "Quaternion.ts"},["3191"] = {line = 92, file = "Quaternion.ts"},["3192"] = {line = 93, file = "Quaternion.ts"},["3193"] = {line = 99, file = "Quaternion.ts"},["3194"] = {line = 104, file = "Quaternion.ts"},["3195"] = {line = 86, file = "Quaternion.ts"},["3196"] = {line = 107, file = "Quaternion.ts"},["3197"] = {line = 108, file = "Quaternion.ts"},["3198"] = {line = 110, file = "Quaternion.ts"},["3199"] = {line = 112, file = "Quaternion.ts"},["3200"] = {line = 114, file = "Quaternion.ts"},["3201"] = {line = 116, file = "Quaternion.ts"},["3202"] = {line = 116, file = "Quaternion.ts"},["3203"] = {line = 116, file = "Quaternion.ts"},["3204"] = {line = 116, file = "Quaternion.ts"},["3205"] = {line = 116, file = "Quaternion.ts"},["3206"] = {line = 116, file = "Quaternion.ts"},["3207"] = {line = 116, file = "Quaternion.ts"},["3208"] = {line = 117, file = "Quaternion.ts"},["3209"] = {line = 107, file = "Quaternion.ts"},["3210"] = {line = 119, file = "Quaternion.ts"},["3211"] = {line = 120, file = "Quaternion.ts"},["3212"] = {line = 120, file = "Quaternion.ts"},["3213"] = {line = 121, file = "Quaternion.ts"},["3214"] = {line = 122, file = "Quaternion.ts"},["3215"] = {line = 123, file = "Quaternion.ts"},["3216"] = {line = 124, file = "Quaternion.ts"},["3217"] = {line = 120, file = "Quaternion.ts"},["3218"] = {line = 126, file = "Quaternion.ts"},["3219"] = {line = 127, file = "Quaternion.ts"},["3220"] = {line = 130, file = "Quaternion.ts"},["3221"] = {line = 131, file = "Quaternion.ts"},["3222"] = {line = 119, file = "Quaternion.ts"},["3223"] = {line = 133, file = "Quaternion.ts"},["3224"] = {line = 134, file = "Quaternion.ts"},["3225"] = {line = 134, file = "Quaternion.ts"},["3226"] = {line = 135, file = "Quaternion.ts"},["3227"] = {line = 136, file = "Quaternion.ts"},["3228"] = {line = 137, file = "Quaternion.ts"},["3229"] = {line = 138, file = "Quaternion.ts"},["3230"] = {line = 134, file = "Quaternion.ts"},["3231"] = {line = 140, file = "Quaternion.ts"},["3232"] = {line = 142, file = "Quaternion.ts"},["3233"] = {line = 143, file = "Quaternion.ts"},["3234"] = {line = 144, file = "Quaternion.ts"},["3235"] = {line = 133, file = "Quaternion.ts"},["3236"] = {line = 15, file = "Quaternion.ts"},["3245"] = {line = 3, file = "shipBridge.ts"},["3246"] = {line = 3, file = "shipBridge.ts"},["3247"] = {line = 3, file = "shipBridge.ts"},["3248"] = {line = 4, file = "shipBridge.ts"},["3249"] = {line = 4, file = "shipBridge.ts"},["3250"] = {line = 5, file = "shipBridge.ts"},["3251"] = {line = 5, file = "shipBridge.ts"},["3252"] = {line = 6, file = "shipBridge.ts"},["3253"] = {line = 6, file = "shipBridge.ts"},["3254"] = {line = 6, file = "shipBridge.ts"},["3255"] = {line = 6, file = "shipBridge.ts"},["3256"] = {line = 6, file = "shipBridge.ts"},["3257"] = {line = 6, file = "shipBridge.ts"},["3258"] = {line = 6, file = "shipBridge.ts"},["3259"] = {line = 6, file = "shipBridge.ts"},["3260"] = {line = 7, file = "shipBridge.ts"},["3261"] = {line = 7, file = "shipBridge.ts"},["3262"] = {line = 9, file = "shipBridge.ts"},["3263"] = {line = 9, file = "shipBridge.ts"},["3264"] = {line = 9, file = "shipBridge.ts"},["3266"] = {line = 9, file = "shipBridge.ts"},["3267"] = {line = 11, file = "shipBridge.ts"},["3268"] = {line = 13, file = "shipBridge.ts"},["3269"] = {line = 14, file = "shipBridge.ts"},["3271"] = {line = 15, file = "shipBridge.ts"},["3275"] = {line = 17, file = "shipBridge.ts"},["3277"] = {line = 19, file = "shipBridge.ts"},["3281"] = {line = 21, file = "shipBridge.ts"},["3282"] = {line = 22, file = "shipBridge.ts"},["3283"] = {line = 11, file = "shipBridge.ts"},["3284"] = {line = 24, file = "shipBridge.ts"},["3285"] = {line = 26, file = "shipBridge.ts"},["3286"] = {line = 24, file = "shipBridge.ts"},["3287"] = {line = 28, file = "shipBridge.ts"},["3288"] = {line = 30, file = "shipBridge.ts"},["3289"] = {line = 31, file = "shipBridge.ts"},["3291"] = {line = 32, file = "shipBridge.ts"},["3296"] = {line = 28, file = "shipBridge.ts"},["3297"] = {line = 36, file = "shipBridge.ts"},["3298"] = {line = 38, file = "shipBridge.ts"},["3299"] = {line = 39, file = "shipBridge.ts"},["3300"] = {line = 40, file = "shipBridge.ts"},["3303"] = {line = 44, file = "shipBridge.ts"},["3307"] = {line = 36, file = "shipBridge.ts"},["3308"] = {line = 47, file = "shipBridge.ts"},["3309"] = {line = 49, file = "shipBridge.ts"},["3310"] = {line = 50, file = "shipBridge.ts"},["3311"] = {line = 51, file = "shipBridge.ts"},["3313"] = {line = 52, file = "shipBridge.ts"},["3317"] = {line = 54, file = "shipBridge.ts"},["3319"] = {line = 56, file = "shipBridge.ts"},["3323"] = {line = 58, file = "shipBridge.ts"},["3324"] = {line = 58, file = "shipBridge.ts"},["3325"] = {line = 58, file = "shipBridge.ts"},["3326"] = {line = 58, file = "shipBridge.ts"},["3327"] = {line = 58, file = "shipBridge.ts"},["3328"] = {line = 58, file = "shipBridge.ts"},["3329"] = {line = 58, file = "shipBridge.ts"},["3330"] = {line = 59, file = "shipBridge.ts"},["3331"] = {line = 47, file = "shipBridge.ts"},["3332"] = {line = 61, file = "shipBridge.ts"},["3333"] = {line = 63, file = "shipBridge.ts"},["3334"] = {line = 64, file = "shipBridge.ts"},["3336"] = {line = 65, file = "shipBridge.ts"},["3340"] = {line = 67, file = "shipBridge.ts"},["3342"] = {line = 69, file = "shipBridge.ts"},["3346"] = {line = 71, file = "shipBridge.ts"},["3347"] = {line = 72, file = "shipBridge.ts"},["3348"] = {line = 61, file = "shipBridge.ts"},["3349"] = {line = 74, file = "shipBridge.ts"},["3350"] = {line = 76, file = "shipBridge.ts"},["3351"] = {line = 77, file = "shipBridge.ts"},["3353"] = {line = 78, file = "shipBridge.ts"},["3357"] = {line = 80, file = "shipBridge.ts"},["3359"] = {line = 82, file = "shipBridge.ts"},["3363"] = {line = 84, file = "shipBridge.ts"},["3364"] = {line = 85, file = "shipBridge.ts"},["3365"] = {line = 74, file = "shipBridge.ts"},["3430"] = {line = 1, file = "Thruster.ts"},["3431"] = {line = 1, file = "Thruster.ts"},["3432"] = {line = 2, file = "Thruster.ts"},["3433"] = {line = 2, file = "Thruster.ts"},["3434"] = {line = 4, file = "Thruster.ts"},["3435"] = {line = 4, file = "Thruster.ts"},["3436"] = {line = 6, file = "Thruster.ts"},["3437"] = {line = 8, file = "Thruster.ts"},["3438"] = {line = 8, file = "Thruster.ts"},["3439"] = {line = 9, file = "Thruster.ts"},["3440"] = {line = 9, file = "Thruster.ts"},["3441"] = {line = 10, file = "Thruster.ts"},["3442"] = {line = 10, file = "Thruster.ts"},["3443"] = {line = 11, file = "Thruster.ts"},["3444"] = {line = 11, file = "Thruster.ts"},["3445"] = {line = 12, file = "Thruster.ts"},["3446"] = {line = 12, file = "Thruster.ts"},["3447"] = {line = 14, file = "Thruster.ts"},["3448"] = {line = 16, file = "Thruster.ts"},["3449"] = {line = 16, file = "Thruster.ts"},["3450"] = {line = 17, file = "Thruster.ts"},["3451"] = {line = 17, file = "Thruster.ts"},["3452"] = {line = 18, file = "Thruster.ts"},["3453"] = {line = 18, file = "Thruster.ts"},["3454"] = {line = 21, file = "Thruster.ts"},["3455"] = {line = 21, file = "Thruster.ts"},["3456"] = {line = 21, file = "Thruster.ts"},["3457"] = {line = 65, file = "Thruster.ts"},["3458"] = {line = 23, file = "Thruster.ts"},["3459"] = {line = 24, file = "Thruster.ts"},["3460"] = {line = 27, file = "Thruster.ts"},["3461"] = {line = 28, file = "Thruster.ts"},["3462"] = {line = 29, file = "Thruster.ts"},["3463"] = {line = 30, file = "Thruster.ts"},["3464"] = {line = 31, file = "Thruster.ts"},["3465"] = {line = 66, file = "Thruster.ts"},["3466"] = {line = 67, file = "Thruster.ts"},["3467"] = {line = 68, file = "Thruster.ts"},["3468"] = {line = 69, file = "Thruster.ts"},["3469"] = {line = 71, file = "Thruster.ts"},["3470"] = {line = 72, file = "Thruster.ts"},["3471"] = {line = 65, file = "Thruster.ts"},["3472"] = {line = 34, file = "Thruster.ts"},["3473"] = {line = 37, file = "Thruster.ts"},["3474"] = {line = 38, file = "Thruster.ts"},["3475"] = {line = 39, file = "Thruster.ts"},["3477"] = {line = 41, file = "Thruster.ts"},["3478"] = {line = 34, file = "Thruster.ts"},["3479"] = {line = 43, file = "Thruster.ts"},["3480"] = {line = 45, file = "Thruster.ts"},["3481"] = {line = 43, file = "Thruster.ts"},["3482"] = {line = 48, file = "Thruster.ts"},["3485"] = {line = 60, file = "Thruster.ts"},["3486"] = {line = 61, file = "Thruster.ts"},["3489"] = {line = 51, file = "Thruster.ts"},["3490"] = {line = 51, file = "Thruster.ts"},["3492"] = {line = 52, file = "Thruster.ts"},["3493"] = {line = 53, file = "Thruster.ts"},["3494"] = {line = 53, file = "Thruster.ts"},["3495"] = {line = 53, file = "Thruster.ts"},["3497"] = {line = 55, file = "Thruster.ts"},["3498"] = {line = 56, file = "Thruster.ts"},["3499"] = {line = 56, file = "Thruster.ts"},["3500"] = {line = 56, file = "Thruster.ts"},["3502"] = {line = 57, file = "Thruster.ts"},["3508"] = {line = 50, file = "Thruster.ts"},["3511"] = {line = 48, file = "Thruster.ts"},["3523"] = {line = 1, file = "Recoverability.ts"},["3524"] = {line = 1, file = "Recoverability.ts"},["3525"] = {line = 1, file = "Recoverability.ts"},["3526"] = {line = 1, file = "Recoverability.ts"},["3527"] = {line = 1, file = "Recoverability.ts"},["3528"] = {line = 1, file = "Recoverability.ts"},["3529"] = {line = 1, file = "Recoverability.ts"},["3535"] = {line = 1, file = "SystemState.ts"},["3536"] = {line = 2, file = "SystemState.ts"},["3537"] = {line = 2, file = "SystemState.ts"},["3538"] = {line = 3, file = "SystemState.ts"},["3539"] = {line = 3, file = "SystemState.ts"},["3540"] = {line = 4, file = "SystemState.ts"},["3541"] = {line = 4, file = "SystemState.ts"},["3542"] = {line = 5, file = "SystemState.ts"},["3543"] = {line = 5, file = "SystemState.ts"},["3544"] = {line = 6, file = "SystemState.ts"},["3545"] = {line = 6, file = "SystemState.ts"},["3553"] = {line = 1, file = "Time.ts"},["3554"] = {line = 1, file = "Time.ts"},["3555"] = {line = 1, file = "Time.ts"},["3556"] = {line = 5, file = "Time.ts"},["3557"] = {line = 3, file = "Time.ts"},["3558"] = {line = 7, file = "Time.ts"},["3559"] = {line = 5, file = "Time.ts"},["3560"] = {line = 10, file = "Time.ts"},["3561"] = {line = 12, file = "Time.ts"},["3562"] = {line = 13, file = "Time.ts"},["3563"] = {line = 10, file = "Time.ts"},["3564"] = {line = 16, file = "Time.ts"},["3565"] = {line = 18, file = "Time.ts"},["3566"] = {line = 16, file = "Time.ts"},["3574"] = {line = 3, file = "Timer.ts"},["3575"] = {line = 3, file = "Timer.ts"},["3576"] = {line = 3, file = "Timer.ts"},["3577"] = {line = 8, file = "Timer.ts"},["3578"] = {line = 10, file = "Timer.ts"},["3579"] = {line = 11, file = "Timer.ts"},["3580"] = {line = 12, file = "Timer.ts"},["3581"] = {line = 8, file = "Timer.ts"},["3582"] = {line = 15, file = "Timer.ts"},["3583"] = {line = 17, file = "Timer.ts"},["3584"] = {line = 19, file = "Timer.ts"},["3586"] = {line = 21, file = "Timer.ts"},["3587"] = {line = 15, file = "Timer.ts"},["3597"] = {line = 18, file = "ReactionControlSystem.ts"},["3598"] = {line = 18, file = "ReactionControlSystem.ts"},["3599"] = {line = 19, file = "ReactionControlSystem.ts"},["3600"] = {line = 19, file = "ReactionControlSystem.ts"},["3601"] = {line = 21, file = "ReactionControlSystem.ts"},["3602"] = {line = 21, file = "ReactionControlSystem.ts"},["3603"] = {line = 21, file = "ReactionControlSystem.ts"},["3604"] = {line = 22, file = "ReactionControlSystem.ts"},["3605"] = {line = 22, file = "ReactionControlSystem.ts"},["3606"] = {line = 23, file = "ReactionControlSystem.ts"},["3607"] = {line = 23, file = "ReactionControlSystem.ts"},["3608"] = {line = 24, file = "ReactionControlSystem.ts"},["3609"] = {line = 24, file = "ReactionControlSystem.ts"},["3610"] = {line = 25, file = "ReactionControlSystem.ts"},["3611"] = {line = 25, file = "ReactionControlSystem.ts"},["3612"] = {line = 26, file = "ReactionControlSystem.ts"},["3613"] = {line = 26, file = "ReactionControlSystem.ts"},["3614"] = {line = 31, file = "ReactionControlSystem.ts"},["3615"] = {line = 31, file = "ReactionControlSystem.ts"},["3616"] = {line = 31, file = "ReactionControlSystem.ts"},["3617"] = {line = 31, file = "ReactionControlSystem.ts"},["3618"] = {line = 31, file = "ReactionControlSystem.ts"},["3619"] = {line = 31, file = "ReactionControlSystem.ts"},["3620"] = {line = 31, file = "ReactionControlSystem.ts"},["3621"] = {line = 37, file = "ReactionControlSystem.ts"},["3622"] = {line = 37, file = "ReactionControlSystem.ts"},["3623"] = {line = 37, file = "ReactionControlSystem.ts"},["3624"] = {line = 276, file = "ReactionControlSystem.ts"},["3625"] = {line = 38, file = "ReactionControlSystem.ts"},["3626"] = {line = 39, file = "ReactionControlSystem.ts"},["3627"] = {line = 40, file = "ReactionControlSystem.ts"},["3628"] = {line = 45, file = "ReactionControlSystem.ts"},["3629"] = {line = 46, file = "ReactionControlSystem.ts"},["3630"] = {line = 47, file = "ReactionControlSystem.ts"},["3631"] = {line = 48, file = "ReactionControlSystem.ts"},["3632"] = {line = 48, file = "ReactionControlSystem.ts"},["3633"] = {line = 48, file = "ReactionControlSystem.ts"},["3634"] = {line = 48, file = "ReactionControlSystem.ts"},["3635"] = {line = 48, file = "ReactionControlSystem.ts"},["3636"] = {line = 48, file = "ReactionControlSystem.ts"},["3637"] = {line = 48, file = "ReactionControlSystem.ts"},["3638"] = {line = 49, file = "ReactionControlSystem.ts"},["3639"] = {line = 49, file = "ReactionControlSystem.ts"},["3640"] = {line = 49, file = "ReactionControlSystem.ts"},["3641"] = {line = 49, file = "ReactionControlSystem.ts"},["3642"] = {line = 49, file = "ReactionControlSystem.ts"},["3643"] = {line = 49, file = "ReactionControlSystem.ts"},["3644"] = {line = 49, file = "ReactionControlSystem.ts"},["3645"] = {line = 277, file = "ReactionControlSystem.ts"},["3646"] = {line = 278, file = "ReactionControlSystem.ts"},["3647"] = {line = 279, file = "ReactionControlSystem.ts"},["3648"] = {line = 276, file = "ReactionControlSystem.ts"},["3649"] = {line = 51, file = "ReactionControlSystem.ts"},["3650"] = {line = 52, file = "ReactionControlSystem.ts"},["3651"] = {line = 51, file = "ReactionControlSystem.ts"},["3652"] = {line = 58, file = "ReactionControlSystem.ts"},["3653"] = {line = 63, file = "ReactionControlSystem.ts"},["3654"] = {line = 64, file = "ReactionControlSystem.ts"},["3655"] = {line = 64, file = "ReactionControlSystem.ts"},["3656"] = {line = 64, file = "ReactionControlSystem.ts"},["3659"] = {line = 66, file = "ReactionControlSystem.ts"},["3662"] = {line = 64, file = "ReactionControlSystem.ts"},["3663"] = {line = 64, file = "ReactionControlSystem.ts"},["3664"] = {line = 58, file = "ReactionControlSystem.ts"},["3665"] = {line = 71, file = "ReactionControlSystem.ts"},["3666"] = {line = 77, file = "ReactionControlSystem.ts"},["3667"] = {line = 81, file = "ReactionControlSystem.ts"},["3669"] = {line = 82, file = "ReactionControlSystem.ts"},["3670"] = {line = 83, file = "ReactionControlSystem.ts"},["3672"] = {line = 85, file = "ReactionControlSystem.ts"},["3673"] = {line = 71, file = "ReactionControlSystem.ts"},["3674"] = {line = 89, file = "ReactionControlSystem.ts"},["3675"] = {line = 96, file = "ReactionControlSystem.ts"},["3676"] = {line = 98, file = "ReactionControlSystem.ts"},["3677"] = {line = 100, file = "ReactionControlSystem.ts"},["3678"] = {line = 101, file = "ReactionControlSystem.ts"},["3679"] = {line = 102, file = "ReactionControlSystem.ts"},["3680"] = {line = 102, file = "ReactionControlSystem.ts"},["3681"] = {line = 102, file = "ReactionControlSystem.ts"},["3682"] = {line = 104, file = "ReactionControlSystem.ts"},["3683"] = {line = 105, file = "ReactionControlSystem.ts"},["3685"] = {line = 102, file = "ReactionControlSystem.ts"},["3686"] = {line = 102, file = "ReactionControlSystem.ts"},["3687"] = {line = 108, file = "ReactionControlSystem.ts"},["3688"] = {line = 108, file = "ReactionControlSystem.ts"},["3689"] = {line = 108, file = "ReactionControlSystem.ts"},["3690"] = {line = 110, file = "ReactionControlSystem.ts"},["3691"] = {line = 111, file = "ReactionControlSystem.ts"},["3693"] = {line = 108, file = "ReactionControlSystem.ts"},["3694"] = {line = 108, file = "ReactionControlSystem.ts"},["3695"] = {line = 115, file = "ReactionControlSystem.ts"},["3696"] = {line = 119, file = "ReactionControlSystem.ts"},["3698"] = {line = 122, file = "ReactionControlSystem.ts"},["3699"] = {line = 127, file = "ReactionControlSystem.ts"},["3700"] = {line = 128, file = "ReactionControlSystem.ts"},["3702"] = {line = 130, file = "ReactionControlSystem.ts"},["3703"] = {line = 89, file = "ReactionControlSystem.ts"},["3704"] = {line = 133, file = "ReactionControlSystem.ts"},["3705"] = {line = 134, file = "ReactionControlSystem.ts"},["3706"] = {line = 135, file = "ReactionControlSystem.ts"},["3707"] = {line = 136, file = "ReactionControlSystem.ts"},["3708"] = {line = 137, file = "ReactionControlSystem.ts"},["3710"] = {line = 133, file = "ReactionControlSystem.ts"},["3711"] = {line = 149, file = "ReactionControlSystem.ts"},["3712"] = {line = 150, file = "ReactionControlSystem.ts"},["3713"] = {line = 151, file = "ReactionControlSystem.ts"},["3714"] = {line = 152, file = "ReactionControlSystem.ts"},["3716"] = {line = 154, file = "ReactionControlSystem.ts"},["3717"] = {line = 155, file = "ReactionControlSystem.ts"},["3718"] = {line = 155, file = "ReactionControlSystem.ts"},["3719"] = {line = 155, file = "ReactionControlSystem.ts"},["3720"] = {line = 157, file = "ReactionControlSystem.ts"},["3721"] = {line = 158, file = "ReactionControlSystem.ts"},["3722"] = {line = 160, file = "ReactionControlSystem.ts"},["3724"] = {line = 162, file = "ReactionControlSystem.ts"},["3726"] = {line = 155, file = "ReactionControlSystem.ts"},["3727"] = {line = 155, file = "ReactionControlSystem.ts"},["3728"] = {line = 165, file = "ReactionControlSystem.ts"},["3729"] = {line = 166, file = "ReactionControlSystem.ts"},["3731"] = {line = 168, file = "ReactionControlSystem.ts"},["3732"] = {line = 149, file = "ReactionControlSystem.ts"},["3733"] = {line = 171, file = "ReactionControlSystem.ts"},["3734"] = {line = 175, file = "ReactionControlSystem.ts"},["3735"] = {line = 179, file = "ReactionControlSystem.ts"},["3736"] = {line = 183, file = "ReactionControlSystem.ts"},["3737"] = {line = 171, file = "ReactionControlSystem.ts"},["3738"] = {line = 186, file = "ReactionControlSystem.ts"},["3739"] = {line = 193, file = "ReactionControlSystem.ts"},["3740"] = {line = 195, file = "ReactionControlSystem.ts"},["3741"] = {line = 186, file = "ReactionControlSystem.ts"},["3742"] = {line = 198, file = "ReactionControlSystem.ts"},["3743"] = {line = 208, file = "ReactionControlSystem.ts"},["3744"] = {line = 209, file = "ReactionControlSystem.ts"},["3745"] = {line = 210, file = "ReactionControlSystem.ts"},["3748"] = {line = 214, file = "ReactionControlSystem.ts"},["3749"] = {line = 216, file = "ReactionControlSystem.ts"},["3750"] = {line = 222, file = "ReactionControlSystem.ts"},["3751"] = {line = 223, file = "ReactionControlSystem.ts"},["3752"] = {line = 224, file = "ReactionControlSystem.ts"},["3753"] = {line = 225, file = "ReactionControlSystem.ts"},["3754"] = {line = 226, file = "ReactionControlSystem.ts"},["3755"] = {line = 230, file = "ReactionControlSystem.ts"},["3756"] = {line = 231, file = "ReactionControlSystem.ts"},["3758"] = {line = 236, file = "ReactionControlSystem.ts"},["3761"] = {line = 241, file = "ReactionControlSystem.ts"},["3764"] = {line = 239, file = "ReactionControlSystem.ts"},["3770"] = {line = 198, file = "ReactionControlSystem.ts"},["3771"] = {line = 245, file = "ReactionControlSystem.ts"},["3772"] = {line = 250, file = "ReactionControlSystem.ts"},["3774"] = {line = 251, file = "ReactionControlSystem.ts"},["3778"] = {line = 256, file = "ReactionControlSystem.ts"},["3781"] = {line = 259, file = "ReactionControlSystem.ts"},["3784"] = {line = 263, file = "ReactionControlSystem.ts"},["3785"] = {line = 265, file = "ReactionControlSystem.ts"},["3786"] = {line = 266, file = "ReactionControlSystem.ts"},["3787"] = {line = 267, file = "ReactionControlSystem.ts"},["3788"] = {line = 268, file = "ReactionControlSystem.ts"},["3789"] = {line = 270, file = "ReactionControlSystem.ts"},["3790"] = {line = 270, file = "ReactionControlSystem.ts"},["3791"] = {line = 270, file = "ReactionControlSystem.ts"},["3792"] = {line = 272, file = "ReactionControlSystem.ts"},["3793"] = {line = 270, file = "ReactionControlSystem.ts"},["3794"] = {line = 270, file = "ReactionControlSystem.ts"},["3795"] = {line = 245, file = "ReactionControlSystem.ts"},["3804"] = {line = 14, file = "StabilityAugmentationSystem.ts"},["3805"] = {line = 14, file = "StabilityAugmentationSystem.ts"},["3806"] = {line = 15, file = "StabilityAugmentationSystem.ts"},["3807"] = {line = 15, file = "StabilityAugmentationSystem.ts"},["3808"] = {line = 16, file = "StabilityAugmentationSystem.ts"},["3809"] = {line = 16, file = "StabilityAugmentationSystem.ts"},["3810"] = {line = 18, file = "StabilityAugmentationSystem.ts"},["3811"] = {line = 18, file = "StabilityAugmentationSystem.ts"},["3812"] = {line = 19, file = "StabilityAugmentationSystem.ts"},["3813"] = {line = 19, file = "StabilityAugmentationSystem.ts"},["3814"] = {line = 22, file = "StabilityAugmentationSystem.ts"},["3815"] = {line = 22, file = "StabilityAugmentationSystem.ts"},["3816"] = {line = 23, file = "StabilityAugmentationSystem.ts"},["3817"] = {line = 23, file = "StabilityAugmentationSystem.ts"},["3818"] = {line = 23, file = "StabilityAugmentationSystem.ts"},["3819"] = {line = 26, file = "StabilityAugmentationSystem.ts"},["3820"] = {line = 26, file = "StabilityAugmentationSystem.ts"},["3821"] = {line = 26, file = "StabilityAugmentationSystem.ts"},["3822"] = {line = 26, file = "StabilityAugmentationSystem.ts"},["3823"] = {line = 26, file = "StabilityAugmentationSystem.ts"},["3824"] = {line = 26, file = "StabilityAugmentationSystem.ts"},["3825"] = {line = 26, file = "StabilityAugmentationSystem.ts"},["3826"] = {line = 31, file = "StabilityAugmentationSystem.ts"},["3827"] = {line = 31, file = "StabilityAugmentationSystem.ts"},["3828"] = {line = 31, file = "StabilityAugmentationSystem.ts"},["3829"] = {line = 31, file = "StabilityAugmentationSystem.ts"},["3830"] = {line = 31, file = "StabilityAugmentationSystem.ts"},["3831"] = {line = 36, file = "StabilityAugmentationSystem.ts"},["3832"] = {line = 36, file = "StabilityAugmentationSystem.ts"},["3833"] = {line = 36, file = "StabilityAugmentationSystem.ts"},["3834"] = {line = 351, file = "StabilityAugmentationSystem.ts"},["3835"] = {line = 40, file = "StabilityAugmentationSystem.ts"},["3836"] = {line = 41, file = "StabilityAugmentationSystem.ts"},["3837"] = {line = 48, file = "StabilityAugmentationSystem.ts"},["3838"] = {line = 49, file = "StabilityAugmentationSystem.ts"},["3839"] = {line = 50, file = "StabilityAugmentationSystem.ts"},["3840"] = {line = 352, file = "StabilityAugmentationSystem.ts"},["3841"] = {line = 353, file = "StabilityAugmentationSystem.ts"},["3842"] = {line = 354, file = "StabilityAugmentationSystem.ts"},["3843"] = {line = 355, file = "StabilityAugmentationSystem.ts"},["3844"] = {line = 355, file = "StabilityAugmentationSystem.ts"},["3845"] = {line = 356, file = "StabilityAugmentationSystem.ts"},["3846"] = {line = 357, file = "StabilityAugmentationSystem.ts"},["3847"] = {line = 358, file = "StabilityAugmentationSystem.ts"},["3848"] = {line = 359, file = "StabilityAugmentationSystem.ts"},["3849"] = {line = 360, file = "StabilityAugmentationSystem.ts"},["3850"] = {line = 355, file = "StabilityAugmentationSystem.ts"},["3851"] = {line = 362, file = "StabilityAugmentationSystem.ts"},["3852"] = {line = 362, file = "StabilityAugmentationSystem.ts"},["3853"] = {line = 363, file = "StabilityAugmentationSystem.ts"},["3854"] = {line = 364, file = "StabilityAugmentationSystem.ts"},["3855"] = {line = 365, file = "StabilityAugmentationSystem.ts"},["3856"] = {line = 366, file = "StabilityAugmentationSystem.ts"},["3857"] = {line = 367, file = "StabilityAugmentationSystem.ts"},["3858"] = {line = 362, file = "StabilityAugmentationSystem.ts"},["3859"] = {line = 351, file = "StabilityAugmentationSystem.ts"},["3860"] = {line = 54, file = "StabilityAugmentationSystem.ts"},["3861"] = {line = 55, file = "StabilityAugmentationSystem.ts"},["3862"] = {line = 56, file = "StabilityAugmentationSystem.ts"},["3863"] = {line = 57, file = "StabilityAugmentationSystem.ts"},["3866"] = {line = 64, file = "StabilityAugmentationSystem.ts"},["3867"] = {line = 68, file = "StabilityAugmentationSystem.ts"},["3870"] = {line = 60, file = "StabilityAugmentationSystem.ts"},["3871"] = {line = 61, file = "StabilityAugmentationSystem.ts"},["3872"] = {line = 62, file = "StabilityAugmentationSystem.ts"},["3878"] = {line = 58, file = "StabilityAugmentationSystem.ts"},["3883"] = {line = 74, file = "StabilityAugmentationSystem.ts"},["3884"] = {line = 75, file = "StabilityAugmentationSystem.ts"},["3887"] = {line = 71, file = "StabilityAugmentationSystem.ts"},["3888"] = {line = 72, file = "StabilityAugmentationSystem.ts"},["3894"] = {line = 70, file = "StabilityAugmentationSystem.ts"},["3897"] = {line = 78, file = "StabilityAugmentationSystem.ts"},["3898"] = {line = 79, file = "StabilityAugmentationSystem.ts"},["3899"] = {line = 80, file = "StabilityAugmentationSystem.ts"},["3901"] = {line = 82, file = "StabilityAugmentationSystem.ts"},["3902"] = {line = 83, file = "StabilityAugmentationSystem.ts"},["3903"] = {line = 54, file = "StabilityAugmentationSystem.ts"},["3904"] = {line = 86, file = "StabilityAugmentationSystem.ts"},["3905"] = {line = 90, file = "StabilityAugmentationSystem.ts"},["3906"] = {line = 91, file = "StabilityAugmentationSystem.ts"},["3907"] = {line = 92, file = "StabilityAugmentationSystem.ts"},["3909"] = {line = 94, file = "StabilityAugmentationSystem.ts"},["3910"] = {line = 86, file = "StabilityAugmentationSystem.ts"},["3911"] = {line = 97, file = "StabilityAugmentationSystem.ts"},["3912"] = {line = 104, file = "StabilityAugmentationSystem.ts"},["3913"] = {line = 105, file = "StabilityAugmentationSystem.ts"},["3914"] = {line = 106, file = "StabilityAugmentationSystem.ts"},["3916"] = {line = 109, file = "StabilityAugmentationSystem.ts"},["3917"] = {line = 110, file = "StabilityAugmentationSystem.ts"},["3918"] = {line = 111, file = "StabilityAugmentationSystem.ts"},["3920"] = {line = 113, file = "StabilityAugmentationSystem.ts"},["3921"] = {line = 114, file = "StabilityAugmentationSystem.ts"},["3923"] = {line = 116, file = "StabilityAugmentationSystem.ts"},["3925"] = {line = 97, file = "StabilityAugmentationSystem.ts"},["3926"] = {line = 119, file = "StabilityAugmentationSystem.ts"},["3927"] = {line = 120, file = "StabilityAugmentationSystem.ts"},["3928"] = {line = 121, file = "StabilityAugmentationSystem.ts"},["3929"] = {line = 122, file = "StabilityAugmentationSystem.ts"},["3930"] = {line = 123, file = "StabilityAugmentationSystem.ts"},["3931"] = {line = 126, file = "StabilityAugmentationSystem.ts"},["3933"] = {line = 128, file = "StabilityAugmentationSystem.ts"},["3935"] = {line = 129, file = "StabilityAugmentationSystem.ts"},["3939"] = {line = 131, file = "StabilityAugmentationSystem.ts"},["3940"] = {line = 132, file = "StabilityAugmentationSystem.ts"},["3941"] = {line = 133, file = "StabilityAugmentationSystem.ts"},["3942"] = {line = 134, file = "StabilityAugmentationSystem.ts"},["3944"] = {line = 136, file = "StabilityAugmentationSystem.ts"},["3945"] = {line = 137, file = "StabilityAugmentationSystem.ts"},["3946"] = {line = 119, file = "StabilityAugmentationSystem.ts"},["3947"] = {line = 141, file = "StabilityAugmentationSystem.ts"},["3948"] = {line = 146, file = "StabilityAugmentationSystem.ts"},["3949"] = {line = 148, file = "StabilityAugmentationSystem.ts"},["3950"] = {line = 149, file = "StabilityAugmentationSystem.ts"},["3951"] = {line = 150, file = "StabilityAugmentationSystem.ts"},["3953"] = {line = 152, file = "StabilityAugmentationSystem.ts"},["3954"] = {line = 153, file = "StabilityAugmentationSystem.ts"},["3956"] = {line = 155, file = "StabilityAugmentationSystem.ts"},["3957"] = {line = 141, file = "StabilityAugmentationSystem.ts"},["3958"] = {line = 158, file = "StabilityAugmentationSystem.ts"},["3959"] = {line = 159, file = "StabilityAugmentationSystem.ts"},["3960"] = {line = 158, file = "StabilityAugmentationSystem.ts"},["3961"] = {line = 162, file = "StabilityAugmentationSystem.ts"},["3962"] = {line = 164, file = "StabilityAugmentationSystem.ts"},["3963"] = {line = 165, file = "StabilityAugmentationSystem.ts"},["3964"] = {line = 167, file = "StabilityAugmentationSystem.ts"},["3965"] = {line = 168, file = "StabilityAugmentationSystem.ts"},["3966"] = {line = 174, file = "StabilityAugmentationSystem.ts"},["3967"] = {line = 176, file = "StabilityAugmentationSystem.ts"},["3968"] = {line = 177, file = "StabilityAugmentationSystem.ts"},["3969"] = {line = 179, file = "StabilityAugmentationSystem.ts"},["3971"] = {line = 182, file = "StabilityAugmentationSystem.ts"},["3972"] = {line = 183, file = "StabilityAugmentationSystem.ts"},["3974"] = {line = 185, file = "StabilityAugmentationSystem.ts"},["3976"] = {line = 162, file = "StabilityAugmentationSystem.ts"},["3977"] = {line = 189, file = "StabilityAugmentationSystem.ts"},["3978"] = {line = 194, file = "StabilityAugmentationSystem.ts"},["3979"] = {line = 195, file = "StabilityAugmentationSystem.ts"},["3980"] = {line = 197, file = "StabilityAugmentationSystem.ts"},["3982"] = {line = 199, file = "StabilityAugmentationSystem.ts"},["3983"] = {line = 189, file = "StabilityAugmentationSystem.ts"},["3984"] = {line = 202, file = "StabilityAugmentationSystem.ts"},["3985"] = {line = 207, file = "StabilityAugmentationSystem.ts"},["3986"] = {line = 202, file = "StabilityAugmentationSystem.ts"},["3987"] = {line = 213, file = "StabilityAugmentationSystem.ts"},["3988"] = {line = 214, file = "StabilityAugmentationSystem.ts"},["3989"] = {line = 215, file = "StabilityAugmentationSystem.ts"},["3990"] = {line = 217, file = "StabilityAugmentationSystem.ts"},["3991"] = {line = 219, file = "StabilityAugmentationSystem.ts"},["3992"] = {line = 220, file = "StabilityAugmentationSystem.ts"},["3993"] = {line = 220, file = "StabilityAugmentationSystem.ts"},["3994"] = {line = 220, file = "StabilityAugmentationSystem.ts"},["3995"] = {line = 220, file = "StabilityAugmentationSystem.ts"},["3996"] = {line = 220, file = "StabilityAugmentationSystem.ts"},["3997"] = {line = 220, file = "StabilityAugmentationSystem.ts"},["3998"] = {line = 220, file = "StabilityAugmentationSystem.ts"},["4000"] = {line = 223, file = "StabilityAugmentationSystem.ts"},["4001"] = {line = 224, file = "StabilityAugmentationSystem.ts"},["4002"] = {line = 225, file = "StabilityAugmentationSystem.ts"},["4003"] = {line = 227, file = "StabilityAugmentationSystem.ts"},["4004"] = {line = 228, file = "StabilityAugmentationSystem.ts"},["4005"] = {line = 231, file = "StabilityAugmentationSystem.ts"},["4006"] = {line = 232, file = "StabilityAugmentationSystem.ts"},["4007"] = {line = 233, file = "StabilityAugmentationSystem.ts"},["4008"] = {line = 235, file = "StabilityAugmentationSystem.ts"},["4009"] = {line = 236, file = "StabilityAugmentationSystem.ts"},["4010"] = {line = 237, file = "StabilityAugmentationSystem.ts"},["4011"] = {line = 238, file = "StabilityAugmentationSystem.ts"},["4012"] = {line = 240, file = "StabilityAugmentationSystem.ts"},["4013"] = {line = 241, file = "StabilityAugmentationSystem.ts"},["4014"] = {line = 243, file = "StabilityAugmentationSystem.ts"},["4016"] = {line = 246, file = "StabilityAugmentationSystem.ts"},["4017"] = {line = 247, file = "StabilityAugmentationSystem.ts"},["4019"] = {line = 249, file = "StabilityAugmentationSystem.ts"},["4021"] = {line = 213, file = "StabilityAugmentationSystem.ts"},["4022"] = {line = 257, file = "StabilityAugmentationSystem.ts"},["4023"] = {line = 258, file = "StabilityAugmentationSystem.ts"},["4024"] = {line = 259, file = "StabilityAugmentationSystem.ts"},["4025"] = {line = 257, file = "StabilityAugmentationSystem.ts"},["4026"] = {line = 262, file = "StabilityAugmentationSystem.ts"},["4027"] = {line = 263, file = "StabilityAugmentationSystem.ts"},["4028"] = {line = 264, file = "StabilityAugmentationSystem.ts"},["4031"] = {line = 267, file = "StabilityAugmentationSystem.ts"},["4032"] = {line = 268, file = "StabilityAugmentationSystem.ts"},["4033"] = {line = 262, file = "StabilityAugmentationSystem.ts"},["4034"] = {line = 271, file = "StabilityAugmentationSystem.ts"},["4035"] = {line = 275, file = "StabilityAugmentationSystem.ts"},["4036"] = {line = 276, file = "StabilityAugmentationSystem.ts"},["4037"] = {line = 271, file = "StabilityAugmentationSystem.ts"},["4038"] = {line = 278, file = "StabilityAugmentationSystem.ts"},["4039"] = {line = 279, file = "StabilityAugmentationSystem.ts"},["4040"] = {line = 280, file = "StabilityAugmentationSystem.ts"},["4041"] = {line = 278, file = "StabilityAugmentationSystem.ts"},["4042"] = {line = 287, file = "StabilityAugmentationSystem.ts"},["4043"] = {line = 288, file = "StabilityAugmentationSystem.ts"},["4044"] = {line = 289, file = "StabilityAugmentationSystem.ts"},["4045"] = {line = 290, file = "StabilityAugmentationSystem.ts"},["4046"] = {line = 291, file = "StabilityAugmentationSystem.ts"},["4048"] = {line = 293, file = "StabilityAugmentationSystem.ts"},["4049"] = {line = 294, file = "StabilityAugmentationSystem.ts"},["4050"] = {line = 295, file = "StabilityAugmentationSystem.ts"},["4053"] = {line = 287, file = "StabilityAugmentationSystem.ts"},["4054"] = {line = 300, file = "StabilityAugmentationSystem.ts"},["4055"] = {line = 305, file = "StabilityAugmentationSystem.ts"},["4057"] = {line = 306, file = "StabilityAugmentationSystem.ts"},["4061"] = {line = 308, file = "StabilityAugmentationSystem.ts"},["4062"] = {line = 309, file = "StabilityAugmentationSystem.ts"},["4065"] = {line = 312, file = "StabilityAugmentationSystem.ts"},["4066"] = {line = 313, file = "StabilityAugmentationSystem.ts"},["4067"] = {line = 314, file = "StabilityAugmentationSystem.ts"},["4068"] = {line = 314, file = "StabilityAugmentationSystem.ts"},["4069"] = {line = 314, file = "StabilityAugmentationSystem.ts"},["4070"] = {line = 314, file = "StabilityAugmentationSystem.ts"},["4072"] = {line = 317, file = "StabilityAugmentationSystem.ts"},["4073"] = {line = 319, file = "StabilityAugmentationSystem.ts"},["4074"] = {line = 322, file = "StabilityAugmentationSystem.ts"},["4075"] = {line = 323, file = "StabilityAugmentationSystem.ts"},["4076"] = {line = 325, file = "StabilityAugmentationSystem.ts"},["4077"] = {line = 328, file = "StabilityAugmentationSystem.ts"},["4079"] = {line = 332, file = "StabilityAugmentationSystem.ts"},["4080"] = {line = 334, file = "StabilityAugmentationSystem.ts"},["4082"] = {line = 337, file = "StabilityAugmentationSystem.ts"},["4083"] = {line = 340, file = "StabilityAugmentationSystem.ts"},["4085"] = {line = 342, file = "StabilityAugmentationSystem.ts"},["4086"] = {line = 343, file = "StabilityAugmentationSystem.ts"},["4089"] = {line = 347, file = "StabilityAugmentationSystem.ts"},["4092"] = {line = 345, file = "StabilityAugmentationSystem.ts"},["4098"] = {line = 300, file = "StabilityAugmentationSystem.ts"},["4113"] = {line = 6, file = "FlightManagementSystem.ts"},["4114"] = {line = 6, file = "FlightManagementSystem.ts"},["4115"] = {line = 7, file = "FlightManagementSystem.ts"},["4116"] = {line = 7, file = "FlightManagementSystem.ts"},["4117"] = {line = 10, file = "FlightManagementSystem.ts"},["4118"] = {line = 10, file = "FlightManagementSystem.ts"},["4119"] = {line = 11, file = "FlightManagementSystem.ts"},["4120"] = {line = 11, file = "FlightManagementSystem.ts"},["4121"] = {line = 13, file = "FlightManagementSystem.ts"},["4122"] = {line = 13, file = "FlightManagementSystem.ts"},["4123"] = {line = 14, file = "FlightManagementSystem.ts"},["4124"] = {line = 14, file = "FlightManagementSystem.ts"},["4125"] = {line = 14, file = "FlightManagementSystem.ts"},["4126"] = {line = 15, file = "FlightManagementSystem.ts"},["4127"] = {line = 15, file = "FlightManagementSystem.ts"},["4128"] = {line = 16, file = "FlightManagementSystem.ts"},["4129"] = {line = 16, file = "FlightManagementSystem.ts"},["4130"] = {line = 18, file = "FlightManagementSystem.ts"},["4131"] = {line = 18, file = "FlightManagementSystem.ts"},["4132"] = {line = 18, file = "FlightManagementSystem.ts"},["4133"] = {line = 18, file = "FlightManagementSystem.ts"},["4134"] = {line = 18, file = "FlightManagementSystem.ts"},["4135"] = {line = 18, file = "FlightManagementSystem.ts"},["4136"] = {line = 18, file = "FlightManagementSystem.ts"},["4137"] = {line = 18, file = "FlightManagementSystem.ts"},["4138"] = {line = 18, file = "FlightManagementSystem.ts"},["4139"] = {line = 18, file = "FlightManagementSystem.ts"},["4140"] = {line = 18, file = "FlightManagementSystem.ts"},["4141"] = {line = 26, file = "FlightManagementSystem.ts"},["4142"] = {line = 26, file = "FlightManagementSystem.ts"},["4143"] = {line = 26, file = "FlightManagementSystem.ts"},["4144"] = {line = 73, file = "FlightManagementSystem.ts"},["4145"] = {line = 27, file = "FlightManagementSystem.ts"},["4146"] = {line = 38, file = "FlightManagementSystem.ts"},["4147"] = {line = 39, file = "FlightManagementSystem.ts"},["4148"] = {line = 40, file = "FlightManagementSystem.ts"},["4149"] = {line = 74, file = "FlightManagementSystem.ts"},["4150"] = {line = 75, file = "FlightManagementSystem.ts"},["4151"] = {line = 76, file = "FlightManagementSystem.ts"},["4152"] = {line = 77, file = "FlightManagementSystem.ts"},["4153"] = {line = 78, file = "FlightManagementSystem.ts"},["4154"] = {line = 73, file = "FlightManagementSystem.ts"},["4155"] = {line = 41, file = "FlightManagementSystem.ts"},["4156"] = {line = 46, file = "FlightManagementSystem.ts"},["4157"] = {line = 47, file = "FlightManagementSystem.ts"},["4158"] = {line = 49, file = "FlightManagementSystem.ts"},["4161"] = {line = 52, file = "FlightManagementSystem.ts"},["4162"] = {line = 53, file = "FlightManagementSystem.ts"},["4163"] = {line = 41, file = "FlightManagementSystem.ts"},["4164"] = {line = 56, file = "FlightManagementSystem.ts"},["4165"] = {line = 58, file = "FlightManagementSystem.ts"},["4166"] = {line = 59, file = "FlightManagementSystem.ts"},["4167"] = {line = 60, file = "FlightManagementSystem.ts"},["4169"] = {line = 63, file = "FlightManagementSystem.ts"},["4170"] = {line = 64, file = "FlightManagementSystem.ts"},["4171"] = {line = 65, file = "FlightManagementSystem.ts"},["4172"] = {line = 66, file = "FlightManagementSystem.ts"},["4173"] = {line = 67, file = "FlightManagementSystem.ts"},["4175"] = {line = 70, file = "FlightManagementSystem.ts"},["4176"] = {line = 56, file = "FlightManagementSystem.ts"},["4177"] = {line = 81, file = "FlightManagementSystem.ts"},["4178"] = {line = 83, file = "FlightManagementSystem.ts"},["4179"] = {line = 81, file = "FlightManagementSystem.ts"},["4180"] = {line = 86, file = "FlightManagementSystem.ts"},["4181"] = {line = 88, file = "FlightManagementSystem.ts"},["4182"] = {line = 89, file = "FlightManagementSystem.ts"},["4183"] = {line = 90, file = "FlightManagementSystem.ts"},["4184"] = {line = 90, file = "FlightManagementSystem.ts"},["4185"] = {line = 90, file = "FlightManagementSystem.ts"},["4186"] = {line = 90, file = "FlightManagementSystem.ts"},["4187"] = {line = 88, file = "FlightManagementSystem.ts"},["4188"] = {line = 92, file = "FlightManagementSystem.ts"},["4191"] = {line = 96, file = "FlightManagementSystem.ts"},["4192"] = {line = 97, file = "FlightManagementSystem.ts"},["4195"] = {line = 94, file = "FlightManagementSystem.ts"},["4202"] = {line = 100, file = "FlightManagementSystem.ts"},["4204"] = {line = 103, file = "FlightManagementSystem.ts"},["4205"] = {line = 104, file = "FlightManagementSystem.ts"},["4206"] = {line = 105, file = "FlightManagementSystem.ts"},["4207"] = {line = 86, file = "FlightManagementSystem.ts"},["4208"] = {line = 107, file = "FlightManagementSystem.ts"},["4209"] = {line = 108, file = "FlightManagementSystem.ts"},["4210"] = {line = 109, file = "FlightManagementSystem.ts"},["4212"] = {line = 107, file = "FlightManagementSystem.ts"},["4213"] = {line = 113, file = "FlightManagementSystem.ts"},["4214"] = {line = 114, file = "FlightManagementSystem.ts"},["4215"] = {line = 115, file = "FlightManagementSystem.ts"},["4217"] = {line = 116, file = "FlightManagementSystem.ts"},["4221"] = {line = 118, file = "FlightManagementSystem.ts"},["4222"] = {line = 113, file = "FlightManagementSystem.ts"},["4230"] = {line = 11, file = "CrisisManagementSystem.ts"},["4231"] = {line = 11, file = "CrisisManagementSystem.ts"},["4232"] = {line = 15, file = "CrisisManagementSystem.ts"},["4233"] = {line = 17, file = "CrisisManagementSystem.ts"},["4234"] = {line = 17, file = "CrisisManagementSystem.ts"},["4235"] = {line = 18, file = "CrisisManagementSystem.ts"},["4236"] = {line = 18, file = "CrisisManagementSystem.ts"},["4237"] = {line = 19, file = "CrisisManagementSystem.ts"},["4238"] = {line = 19, file = "CrisisManagementSystem.ts"},["4239"] = {line = 22, file = "CrisisManagementSystem.ts"},["4240"] = {line = 24, file = "CrisisManagementSystem.ts"},["4241"] = {line = 24, file = "CrisisManagementSystem.ts"},["4242"] = {line = 25, file = "CrisisManagementSystem.ts"},["4243"] = {line = 25, file = "CrisisManagementSystem.ts"},["4244"] = {line = 28, file = "CrisisManagementSystem.ts"},["4245"] = {line = 28, file = "CrisisManagementSystem.ts"},["4246"] = {line = 28, file = "CrisisManagementSystem.ts"},["4247"] = {line = 83, file = "CrisisManagementSystem.ts"},["4248"] = {line = 85, file = "CrisisManagementSystem.ts"},["4249"] = {line = 86, file = "CrisisManagementSystem.ts"},["4250"] = {line = 83, file = "CrisisManagementSystem.ts"},["4251"] = {line = 34, file = "CrisisManagementSystem.ts"},["4252"] = {line = 34, file = "CrisisManagementSystem.ts"},["4253"] = {line = 40, file = "CrisisManagementSystem.ts"},["4254"] = {line = 40, file = "CrisisManagementSystem.ts"},["4255"] = {line = 47, file = "CrisisManagementSystem.ts"},["4257"] = {line = 54, file = "CrisisManagementSystem.ts"},["4258"] = {line = 56, file = "CrisisManagementSystem.ts"},["4261"] = {line = 58, file = "CrisisManagementSystem.ts"},["4265"] = {line = 61, file = "CrisisManagementSystem.ts"},["4268"] = {line = 63, file = "CrisisManagementSystem.ts"},["4274"] = {line = 68, file = "CrisisManagementSystem.ts"},["4279"] = {line = 47, file = "CrisisManagementSystem.ts"},["4280"] = {line = 73, file = "CrisisManagementSystem.ts"},["4281"] = {line = 73, file = "CrisisManagementSystem.ts"},["4282"] = {line = 78, file = "CrisisManagementSystem.ts"},["4283"] = {line = 78, file = "CrisisManagementSystem.ts"},["4295"] = {line = 5, file = "drone.ts"},["4296"] = {line = 5, file = "drone.ts"},["4297"] = {line = 6, file = "drone.ts"},["4298"] = {line = 6, file = "drone.ts"},["4299"] = {line = 7, file = "drone.ts"},["4300"] = {line = 7, file = "drone.ts"},["4301"] = {line = 8, file = "drone.ts"},["4302"] = {line = 8, file = "drone.ts"},["4303"] = {line = 10, file = "drone.ts"},["4304"] = {line = 11, file = "drone.ts"},["4305"] = {line = 11, file = "drone.ts"},["4306"] = {line = 11, file = "drone.ts"},["4307"] = {line = 11, file = "drone.ts"},["4308"] = {line = 11, file = "drone.ts"},["4309"] = {line = 11, file = "drone.ts"},["4310"] = {line = 11, file = "drone.ts"},["4311"] = {line = 12, file = "drone.ts"},["4312"] = {line = 12, file = "drone.ts"},["4313"] = {line = 12, file = "drone.ts"},["4314"] = {line = 12, file = "drone.ts"},["4315"] = {line = 12, file = "drone.ts"},["4316"] = {line = 12, file = "drone.ts"},["4317"] = {line = 12, file = "drone.ts"},["4318"] = {line = 13, file = "drone.ts"},["4319"] = {line = 14, file = "drone.ts"},["4320"] = {line = 15, file = "drone.ts"},["4321"] = {line = 15, file = "drone.ts"},["4322"] = {line = 15, file = "drone.ts"},["4323"] = {line = 15, file = "drone.ts"},["4324"] = {line = 16, file = "drone.ts"},["4325"] = {line = 17, file = "drone.ts"},["4326"] = {line = 19, file = "drone.ts"},["4327"] = {line = 20, file = "drone.ts"},["4328"] = {line = 21, file = "drone.ts"},["4329"] = {line = 22, file = "drone.ts"},["4330"] = {line = 23, file = "drone.ts"},["4331"] = {line = 24, file = "drone.ts"},["4332"] = {line = 25, file = "drone.ts"},["4333"] = {line = 25, file = "drone.ts"},["4334"] = {line = 26, file = "drone.ts"},["4335"] = {line = 27, file = "drone.ts"},["4336"] = {line = 28, file = "drone.ts"},["4337"] = {line = 29, file = "drone.ts"},["4338"] = {line = 25, file = "drone.ts"},["4339"] = {line = 31, file = "drone.ts"},["4340"] = {line = 31, file = "drone.ts"},["4341"] = {line = 32, file = "drone.ts"},["4342"] = {line = 33, file = "drone.ts"},["4343"] = {line = 34, file = "drone.ts"},["4344"] = {line = 35, file = "drone.ts"},["4345"] = {line = 31, file = "drone.ts"},["4346"] = {line = 37, file = "drone.ts"},["4347"] = {line = 37, file = "drone.ts"},["4348"] = {line = 38, file = "drone.ts"},["4349"] = {line = 39, file = "drone.ts"},["4350"] = {line = 40, file = "drone.ts"},["4351"] = {line = 41, file = "drone.ts"},["4352"] = {line = 37, file = "drone.ts"},["4353"] = {line = 43, file = "drone.ts"},["4354"] = {line = 43, file = "drone.ts"},["4355"] = {line = 44, file = "drone.ts"},["4356"] = {line = 45, file = "drone.ts"},["4357"] = {line = 46, file = "drone.ts"},["4358"] = {line = 47, file = "drone.ts"},["4359"] = {line = 43, file = "drone.ts"},["4360"] = {line = 50, file = "drone.ts"},["4361"] = {line = 50, file = "drone.ts"},["4362"] = {line = 51, file = "drone.ts"},["4363"] = {line = 52, file = "drone.ts"},["4364"] = {line = 53, file = "drone.ts"},["4365"] = {line = 54, file = "drone.ts"},["4366"] = {line = 50, file = "drone.ts"},["4367"] = {line = 56, file = "drone.ts"},["4368"] = {line = 56, file = "drone.ts"},["4369"] = {line = 57, file = "drone.ts"},["4370"] = {line = 58, file = "drone.ts"},["4371"] = {line = 59, file = "drone.ts"},["4372"] = {line = 60, file = "drone.ts"},["4373"] = {line = 56, file = "drone.ts"},["4374"] = {line = 62, file = "drone.ts"},["4375"] = {line = 62, file = "drone.ts"},["4376"] = {line = 63, file = "drone.ts"},["4377"] = {line = 64, file = "drone.ts"},["4378"] = {line = 65, file = "drone.ts"},["4379"] = {line = 66, file = "drone.ts"},["4380"] = {line = 62, file = "drone.ts"},["4381"] = {line = 68, file = "drone.ts"},["4382"] = {line = 68, file = "drone.ts"},["4383"] = {line = 69, file = "drone.ts"},["4384"] = {line = 70, file = "drone.ts"},["4385"] = {line = 71, file = "drone.ts"},["4386"] = {line = 72, file = "drone.ts"},["4387"] = {line = 68, file = "drone.ts"},["4388"] = {line = 75, file = "drone.ts"},["4389"] = {line = 75, file = "drone.ts"},["4390"] = {line = 76, file = "drone.ts"},["4391"] = {line = 77, file = "drone.ts"},["4392"] = {line = 78, file = "drone.ts"},["4393"] = {line = 79, file = "drone.ts"},["4394"] = {line = 75, file = "drone.ts"},["4395"] = {line = 81, file = "drone.ts"},["4396"] = {line = 81, file = "drone.ts"},["4397"] = {line = 82, file = "drone.ts"},["4398"] = {line = 83, file = "drone.ts"},["4399"] = {line = 84, file = "drone.ts"},["4400"] = {line = 85, file = "drone.ts"},["4401"] = {line = 81, file = "drone.ts"},["4402"] = {line = 87, file = "drone.ts"},["4403"] = {line = 87, file = "drone.ts"},["4404"] = {line = 88, file = "drone.ts"},["4405"] = {line = 89, file = "drone.ts"},["4406"] = {line = 90, file = "drone.ts"},["4407"] = {line = 91, file = "drone.ts"},["4408"] = {line = 87, file = "drone.ts"},["4409"] = {line = 93, file = "drone.ts"},["4410"] = {line = 93, file = "drone.ts"},["4411"] = {line = 94, file = "drone.ts"},["4412"] = {line = 95, file = "drone.ts"},["4413"] = {line = 96, file = "drone.ts"},["4414"] = {line = 97, file = "drone.ts"},["4415"] = {line = 93, file = "drone.ts"},["4416"] = {line = 100, file = "drone.ts"},["4417"] = {line = 100, file = "drone.ts"},["4418"] = {line = 101, file = "drone.ts"},["4419"] = {line = 102, file = "drone.ts"},["4420"] = {line = 103, file = "drone.ts"},["4421"] = {line = 104, file = "drone.ts"},["4422"] = {line = 100, file = "drone.ts"},["4423"] = {line = 106, file = "drone.ts"},["4424"] = {line = 106, file = "drone.ts"},["4425"] = {line = 107, file = "drone.ts"},["4426"] = {line = 108, file = "drone.ts"},["4427"] = {line = 109, file = "drone.ts"},["4428"] = {line = 110, file = "drone.ts"},["4429"] = {line = 106, file = "drone.ts"},["4430"] = {line = 112, file = "drone.ts"},["4431"] = {line = 112, file = "drone.ts"},["4432"] = {line = 113, file = "drone.ts"},["4433"] = {line = 114, file = "drone.ts"},["4434"] = {line = 115, file = "drone.ts"},["4435"] = {line = 116, file = "drone.ts"},["4436"] = {line = 112, file = "drone.ts"},["4437"] = {line = 118, file = "drone.ts"},["4438"] = {line = 118, file = "drone.ts"},["4439"] = {line = 119, file = "drone.ts"},["4440"] = {line = 120, file = "drone.ts"},["4441"] = {line = 121, file = "drone.ts"},["4442"] = {line = 122, file = "drone.ts"},["4443"] = {line = 118, file = "drone.ts"},["4444"] = {line = 125, file = "drone.ts"},["4445"] = {line = 125, file = "drone.ts"},["4446"] = {line = 126, file = "drone.ts"},["4447"] = {line = 127, file = "drone.ts"},["4448"] = {line = 128, file = "drone.ts"},["4449"] = {line = 129, file = "drone.ts"},["4450"] = {line = 125, file = "drone.ts"},["4451"] = {line = 131, file = "drone.ts"},["4452"] = {line = 131, file = "drone.ts"},["4453"] = {line = 132, file = "drone.ts"},["4454"] = {line = 133, file = "drone.ts"},["4455"] = {line = 134, file = "drone.ts"},["4456"] = {line = 135, file = "drone.ts"},["4457"] = {line = 131, file = "drone.ts"},["4458"] = {line = 137, file = "drone.ts"},["4459"] = {line = 137, file = "drone.ts"},["4460"] = {line = 138, file = "drone.ts"},["4461"] = {line = 139, file = "drone.ts"},["4462"] = {line = 140, file = "drone.ts"},["4463"] = {line = 141, file = "drone.ts"},["4464"] = {line = 137, file = "drone.ts"},["4465"] = {line = 143, file = "drone.ts"},["4466"] = {line = 143, file = "drone.ts"},["4467"] = {line = 144, file = "drone.ts"},["4468"] = {line = 145, file = "drone.ts"},["4469"] = {line = 146, file = "drone.ts"},["4470"] = {line = 147, file = "drone.ts"},["4471"] = {line = 143, file = "drone.ts"},["4472"] = {line = 150, file = "drone.ts"},["4473"] = {line = 150, file = "drone.ts"},["4474"] = {line = 151, file = "drone.ts"},["4475"] = {line = 152, file = "drone.ts"},["4476"] = {line = 153, file = "drone.ts"},["4477"] = {line = 154, file = "drone.ts"},["4478"] = {line = 150, file = "drone.ts"},["4479"] = {line = 156, file = "drone.ts"},["4480"] = {line = 156, file = "drone.ts"},["4481"] = {line = 157, file = "drone.ts"},["4482"] = {line = 158, file = "drone.ts"},["4483"] = {line = 159, file = "drone.ts"},["4484"] = {line = 160, file = "drone.ts"},["4485"] = {line = 156, file = "drone.ts"},["4486"] = {line = 162, file = "drone.ts"},["4487"] = {line = 162, file = "drone.ts"},["4488"] = {line = 163, file = "drone.ts"},["4489"] = {line = 164, file = "drone.ts"},["4490"] = {line = 165, file = "drone.ts"},["4491"] = {line = 166, file = "drone.ts"},["4492"] = {line = 162, file = "drone.ts"},["4493"] = {line = 168, file = "drone.ts"},["4494"] = {line = 168, file = "drone.ts"},["4495"] = {line = 169, file = "drone.ts"},["4496"] = {line = 170, file = "drone.ts"},["4497"] = {line = 171, file = "drone.ts"},["4498"] = {line = 172, file = "drone.ts"},["4499"] = {line = 168, file = "drone.ts"},["4500"] = {line = 24, file = "drone.ts"},["4501"] = {line = 10, file = "drone.ts"},["4502"] = {line = 177, file = "drone.ts"},["4503"] = {line = 179, file = "drone.ts"}});
 local ____entry = require("src.entry.drone", ...)
 return ____entry

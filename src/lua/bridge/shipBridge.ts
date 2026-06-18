@@ -3,7 +3,7 @@
 import { Failure, FailureMode } from "../../classes/Failure";
 import { Quaternion } from "../../classes/Math/Quaternion";
 import { Vector3 } from "../../classes/Math/Vector3";
-import { SHIPBRIDGE__DOESRELAYEXIST, SHIPBRIDGE__GETANGULARVELOCITY, SHIPBRIDGE__GETRELAYOUTPUT, SHIPBRIDGE__POSITION, SHIPBRIDGE__QUATERNION, SHIPBRIDGE__SETRELAYOUTPUT, SHIPBRIDGE_GETVELOCITY } from "../declaration/shipBridge";
+import { SHIPBRIDGE__DOESRELAYEXIST, SHIPBRIDGE__GETANGULARVELOCITY, SHIPBRIDGE__GETRELAYOUTPUT, SHIPBRIDGE__POSITION, SHIPBRIDGE__QUATERNION, SHIPBRIDGE__SETRELAYOUTPUT, SHIPBRIDGE__GETVELOCITY } from "../declaration/shipBridge";
 import { lstd } from "./lstd";
 
 export class ShipBridge
@@ -60,7 +60,7 @@ export class ShipBridge
     }
     static GetVelocity(): Vector3
     {
-        const rawVel : readonly number[] = SHIPBRIDGE__POSITION();
+        const rawVel : readonly number[] = SHIPBRIDGE__GETVELOCITY();
         if (rawVel.length !== 3) {
             throw new Failure("Raw velocity data is undefined! Cannot get velocity", FailureMode.MISSUSE); 
         }

@@ -1,6 +1,27 @@
 export class Mathc {
-    static clamp(value : number, min : number, max : number)
+    static Clamp(value : number, min : number, max : number)
     {
-        return Math.max(min, Math.min(max, value));
+        // transcribed from PHOBOS utilities module
+        // uber fast
+        if (value < min)
+        {
+            return min;
+        }
+        if (value > max)
+        {
+            return max;
+        }
+        return value;
+    }
+    static Sign(value : number)
+    {
+        if (value < 0)
+        {
+            return - 1;
+        }
+        else
+        {
+            return 1;
+        }
     }
 }

@@ -7,7 +7,8 @@ export enum FailureMode {
     MISSUSE,
     THRUSTER_RELAY_DOESNT_EXIST,
     THRUSTER_POST_FAILURE,
-    RCS_POST_FAILURE,
+    UPDATE_BEFORE_POST,
+    NOT_YET_IMPLEMENTED,
     RCS_ZERO_VECTOR
 }
 export class Failure extends Error {

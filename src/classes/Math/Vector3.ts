@@ -1,4 +1,5 @@
 import { Failure, FailureMode } from "../Failure";
+import { Mathc } from "./Mathc";
 export class Vector3 {
     x: number = -1;
     y: number = -1;
@@ -12,6 +13,28 @@ export class Vector3 {
     static Zero(): Vector3 {
         const vector: Vector3 = new Vector3(0, 0, 0);
         return vector;
+    }
+
+    /*
+    function utilities.sign_vector3(vec)
+        return vector.new(utilities.sign(vec.x),utilities.sign(vec.y),utilities.sign(vec.z))
+    end
+    */
+
+    Sign(this : Vector3)
+    {
+        const x : number = Math.sign(this.x);
+        const y : number = Math.sign(this.y);
+        const z : number = Math.sign(this.z);
+        return new Vector3(x,y,z);
+    }
+
+    Clamp(this : Vector3, min : number, max : number) : Vector3
+    {
+        const x : number = Mathc.Clamp(this.x, min, max);
+        const y : number = Mathc.Clamp(this.y, min, max);
+        const z : number = Mathc.Clamp(this.z, min, max);
+        return new Vector3(x,y,z);
     }
 
     Dot(this: Vector3, otherVector: Vector3): number {
@@ -28,7 +51,6 @@ export class Vector3 {
             this.x * otherVector.y - this.y * otherVector.x
         );
         return finalVector;
-
     }
 
     IsEqualTo(this : Vector3, otherVector : Vector3): boolean
@@ -88,6 +110,14 @@ export class Vector3 {
             this.z * number
         );
         return product;
+    }
+    Divide(this : Vector3, scalar : number)
+    {
+        if (scalar === 0)
+        {
+            throw new Error("[VECTOR] Attempt to divide by 0!");
+        }
+        return new Vector3(this.x / scalar, this.y / scalar, this.z / scalar);
     }
     Inverse(this: Vector3): Vector3 {
 

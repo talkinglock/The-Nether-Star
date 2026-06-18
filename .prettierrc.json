@@ -1,0 +1,8 @@
+{
+	"semi": true,
+	"trailingComma": "es5",
+	"objectWrap": "collapse",
+	"printWidth": 100,
+	"tabWidth": 1,
+	"useTabs": true
+}
